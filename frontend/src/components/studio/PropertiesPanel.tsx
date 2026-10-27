@@ -17,7 +17,8 @@ export const PropertiesPanel: React.FC = () => {
 
   if (!isPropertiesPanelOpen) return null;
 
-  const selectedEl = activeTemplate?.elements.find((el) => el.id === selectedElementId);
+  const elements = activeTemplate?.elements || [];
+  const selectedEl = elements.find((el) => el.id === selectedElementId);
 
   if (!selectedEl) {
     return (

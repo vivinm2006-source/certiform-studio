@@ -71,7 +71,7 @@ export const CanvasWorkspace: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (editingElementId || !selectedElementId) return;
-      const el = activeTemplate?.elements.find((el) => el.id === selectedElementId);
+      const el = (activeTemplate?.elements || []).find((el) => el.id === selectedElementId);
       if (!el || el.is_locked) return;
 
       const step = e.shiftKey ? 0.02 : 0.005;
@@ -216,7 +216,7 @@ export const CanvasWorkspace: React.FC = () => {
   // Quick 1-click center alignment action
   const centerSelectedElement = () => {
     if (!selectedElementId || !activeTemplate) return;
-    const el = activeTemplate.elements.find(e => e.id === selectedElementId);
+    const el = (activeTemplate.elements || []).find(e => e.id === selectedElementId);
     if (!el) return;
     const centeredX = (1.0 - el.width) / 2;
     updateElementProps(el.id, { x: centeredX });
@@ -301,8 +301,9 @@ export const CanvasWorkspace: React.FC = () => {
     }
   };
 
-  const selectedEl = activeTemplate?.elements.find((el) => el.id === selectedElementId);
-  const editingEl = activeTemplate?.elements.find((el) => el.id === editingElementId);
+  const templateElements = activeTemplate?.elements || [];
+  const selectedEl = templateElements.find((el) => el.id === selectedElementId);
+  const editingEl = templateElements.find((el) => el.id === editingElementId);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-200/60 overflow-hidden relative select-none">
@@ -565,7 +566,7 @@ export const CanvasWorkspace: React.FC = () => {
           )}
 
           {/* Canvas Elements */}
-          {activeTemplate?.elements
+          {templateElements
             .filter((el) => el.is_visible)
             .sort((a, b) => a.layer_order - b.layer_order)
             .map((el) => {
