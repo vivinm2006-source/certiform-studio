@@ -4,7 +4,7 @@ import {
   Trash2, Copy, Move, CheckSquare, Grid, Compass, 
   AlignLeft, AlignCenter, AlignRight, Layers, Sparkles,
   Download, Edit3, X, RefreshCw, Sliders, Upload,
-  PanelLeft, PanelRight, ChevronDown
+  PanelLeft, PanelRight, ChevronDown, Check, Plus, LayoutTemplate
 } from 'lucide-react';
 import { CanvasElement } from '../../types';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -29,7 +29,11 @@ function resolveText(templateStr: string | undefined, data: Record<string, any>,
 }
 
 export const CanvasWorkspace: React.FC = () => {
-  const { activeTemplate, recipients, activeRecipientIndex, updateActiveRecipientData } = useProjectStore();
+  const { 
+    activeTemplate, templates, selectTemplate, duplicateTemplate, 
+    deleteTemplate, setTemplateGalleryOpen, recipients, 
+    activeRecipientIndex, updateActiveRecipientData 
+  } = useProjectStore();
   const { 
     zoom, setZoom, selectedElementId, setSelectedElementId,
     editingElementId, setEditingElementId, showGrid, toggleGrid,
@@ -41,6 +45,7 @@ export const CanvasWorkspace: React.FC = () => {
   const [isAutoFit, setIsAutoFit] = useState(true);
   const [showLiveInputDrawer, setShowLiveInputDrawer] = useState(false);
   const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
+  const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -372,12 +377,12 @@ export const CanvasWorkspace: React.FC = () => {
           </button>
         </div>
 
-        {/* Quick Alignment & Template Preset Tools */}
-        <div className="flex items-center space-x-2 flex-shrink-0">
+        {/* Template Selector, + Add Template, Alignment & Settings */}
+        <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
           {selectedEl && (
             <button
               onClick={centerSelectedElement}
-              className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded text-[11px] font-semibold flex items-center space-x-1"
+              className="px-2 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded text-[11px] font-semibold flex items-center space-x-1"
               title="Align Selected Element Horizontally Center"
             >
               <AlignCenter className="h-3 w-3" />
@@ -385,29 +390,120 @@ export const CanvasWorkspace: React.FC = () => {
             </button>
           )}
 
-          <div className="hidden lg:flex items-center space-x-1 bg-slate-100 p-0.5 rounded border border-slate-200 text-[11px]">
-            <span className="text-slate-400 px-1 font-medium text-[10px]">PRESET:</span>
+          {/* Template Switcher Dropdown */}
+          <div className="relative">
             <button
-              onClick={() => handleLoadPreset('academic')}
-              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 font-medium transition-colors"
+              onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
+              className="px-2 sm:px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 rounded text-[11px] font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors max-w-[140px] sm:max-w-[210px]"
+              title="Switch or manage certificate templates"
             >
-              Academic
+              <LayoutTemplate className="h-3.5 w-3.5 text-brand-600 flex-shrink-0" />
+              <span className="truncate">{activeTemplate?.name || 'Select Template'}</span>
+              <ChevronDown className="h-3 w-3 text-slate-400 flex-shrink-0 ml-0.5" />
             </button>
-            <button
-              onClick={() => handleLoadPreset('executive')}
-              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 font-medium transition-colors"
-            >
-              Executive
-            </button>
+
+            {isTemplateDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setIsTemplateDropdownOpen(false)}
+                />
+                <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span>Project Templates</span>
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono">{templates.length}</span>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto py-1 divide-y divide-slate-50">
+                    {templates.map((tpl) => {
+                      const isActive = activeTemplate?.id === tpl.id;
+                      return (
+                        <div
+                          key={tpl.id}
+                          className={`px-3 py-2 flex items-center justify-between text-xs cursor-pointer group transition-colors ${
+                            isActive ? 'bg-brand-50/70 text-brand-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                          onClick={() => {
+                            selectTemplate(tpl.id);
+                            setIsTemplateDropdownOpen(false);
+                          }}
+                        >
+                          <div className="flex items-center space-x-2 truncate pr-2">
+                            {isActive ? (
+                              <Check className="h-3.5 w-3.5 text-brand-600 flex-shrink-0 stroke-[2.5]" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex-shrink-0" />
+                            )}
+                            <div className="truncate">
+                              <div className="truncate text-[11px] leading-tight">{tpl.name}</div>
+                              <div className="text-[9px] text-slate-400 font-normal mt-0.5">
+                                {tpl.page_format.replace('_', ' ')} • {tpl.elements?.length || 0} elements
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={async () => {
+                                await duplicateTemplate(tpl.id);
+                                setIsTemplateDropdownOpen(false);
+                              }}
+                              className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+                              title="Duplicate template"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                            {templates.length > 1 && (
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete template "${tpl.name}"?`)) {
+                                    await deleteTemplate(tpl.id);
+                                  }
+                                }}
+                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                title="Delete template"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-slate-100 p-2">
+                    <button
+                      onClick={() => {
+                        setIsTemplateDropdownOpen(false);
+                        setTemplateGalleryOpen(true);
+                      }}
+                      className="w-full px-2.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg flex items-center justify-center space-x-1.5 shadow-2xs transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add New Template</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
+          {/* Direct "+ Add Template" Button */}
+          <button
+            onClick={() => setTemplateGalleryOpen(true)}
+            className="px-2 sm:px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded text-[11px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Add a new certificate template from library or upload custom artwork"
+          >
+            <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+            <span className="hidden sm:inline">Add Template</span>
+          </button>
+
+          {/* Template Settings Button */}
           <button
             onClick={() => setShowTemplateSettingsModal(true)}
-            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+            className="px-2 sm:px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
             title="Edit template name, upload custom certificate design, or adjust paper format"
           >
             <Sliders className="h-3 w-3 text-slate-500" />
-            <span>Template Settings</span>
+            <span className="hidden md:inline">Settings</span>
           </button>
         </div>
 

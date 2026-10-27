@@ -99,7 +99,7 @@ class CertificateTemplateBase(BaseModel):
     is_active: bool = True
 
 class CertificateTemplateCreate(CertificateTemplateBase):
-    pass
+    preset: Optional[str] = None
 
 class CertificateTemplateUpdate(BaseModel):
     name: Optional[str] = None

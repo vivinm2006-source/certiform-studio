@@ -63,7 +63,7 @@ class CertificateTemplate(Base):
     page_format = Column(String(50), default="A4_LANDSCAPE")
     width_pt = Column(Float, default=841.89)  # standard A4 landscape width in points
     height_pt = Column(Float, default=595.28) # standard A4 landscape height in points
-    background_asset_url = Column(String(1024), nullable=True)
+    background_asset_url = Column(Text, nullable=True)
     background_color = Column(String(50), default="#FFFFFF")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utc_now)

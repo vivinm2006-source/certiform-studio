@@ -10,10 +10,15 @@ import { RecipientManager } from './components/recipients/RecipientManager';
 import { IssuanceCenter } from './components/issuance/IssuanceCenter';
 import { VerificationCenter } from './components/verification/VerificationCenter';
 import { InstantCertificateModal } from './components/issuance/InstantCertificateModal';
+import { TemplateGalleryModal } from './components/studio/TemplateGalleryModal';
 import { useProjectStore } from './store/useProjectStore';
 
 export function App() {
-  const { currentProject, loadProject, activeWorkspace, isLoading, isQuickCreateOpen, setQuickCreateOpen } = useProjectStore();
+  const { 
+    currentProject, loadProject, activeWorkspace, isLoading, 
+    isQuickCreateOpen, setQuickCreateOpen, 
+    isTemplateGalleryOpen, setTemplateGalleryOpen 
+  } = useProjectStore();
 
   useEffect(() => {
     loadProject();
@@ -70,6 +75,11 @@ export function App() {
       <InstantCertificateModal
         isOpen={isQuickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
+      />
+
+      <TemplateGalleryModal
+        isOpen={isTemplateGalleryOpen}
+        onClose={() => setTemplateGalleryOpen(false)}
       />
     </div>
   );

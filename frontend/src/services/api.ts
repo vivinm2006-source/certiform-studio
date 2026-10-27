@@ -32,6 +32,14 @@ export const api = {
   // Templates & Canvas
   getTemplates: (projectId: string) => request<CertificateTemplate[]>(`/projects/${projectId}/templates`),
   getTemplate: (id: string) => request<CertificateTemplate>(`/templates/${id}`),
+  createTemplate: (projectId: string, data: Partial<CertificateTemplate> & { preset?: string }) =>
+    request<CertificateTemplate>(`/projects/${projectId}/templates`, { method: 'POST', body: JSON.stringify(data) }),
+  duplicateTemplate: (templateId: string) =>
+    request<CertificateTemplate>(`/templates/${templateId}/duplicate`, { method: 'POST' }),
+  deleteTemplate: (templateId: string) =>
+    request<{ success: boolean; message: string }>(`/templates/${templateId}`, { method: 'DELETE' }),
+  loadPreset: (templateId: string, preset: string) =>
+    request<CertificateTemplate>(`/templates/${templateId}/load-preset`, { method: 'POST', body: JSON.stringify({ preset }) }),
   updateTemplate: (id: string, data: Partial<CertificateTemplate>) => 
     request<CertificateTemplate>(`/templates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   batchSyncElements: (templateId: string, elements: CanvasElement[]) => 

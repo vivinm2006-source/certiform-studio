@@ -10,7 +10,7 @@ import { api } from '../../services/api';
 
 export const LeftPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'text' | 'elements' | 'templates' | 'signatures' | 'qr' | 'layers'>('text');
-  const { activeTemplate, activeForm } = useProjectStore();
+  const { activeTemplate, templates, selectTemplate, setTemplateGalleryOpen, activeForm } = useProjectStore();
   const { 
     addElement, selectedElementId, setSelectedElementId, 
     updateElementProps, deleteElement, reorderElement,
@@ -21,10 +21,20 @@ export const LeftPanel: React.FC = () => {
     if (!e.target.files || !e.target.files[0] || !activeTemplate) return;
     try {
       const file = e.target.files[0];
-      const res = await api.uploadTemplateBackground(activeTemplate.id, file);
-      useProjectStore.setState((s) => ({
-        activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: res.background_asset_url } : null,
-      }));
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const dataUrl = event.target?.result as string;
+        useProjectStore.setState((s) => ({
+          activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: dataUrl } : null,
+        }));
+        await api.updateTemplate(activeTemplate.id, { background_asset_url: dataUrl });
+        try {
+          await api.uploadTemplateBackground(activeTemplate.id, file);
+        } catch {
+          // Fallback to dataUrl already saved
+        }
+      };
+      reader.readAsDataURL(file);
     } catch (err) {
       console.error('Failed to upload background:', err);
     }
@@ -273,6 +283,45 @@ export const LeftPanel: React.FC = () => {
         {/* TEMPLATES & BACKGROUNDS TAB */}
         {activeTab === 'templates' && (
           <div className="space-y-4">
+            {/* Template Switcher & Add Template Button */}
+            <div className="p-3 bg-brand-50/50 border border-brand-200 rounded-xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Project Templates ({templates.length})
+                </span>
+                <button
+                  onClick={() => setTemplateGalleryOpen(true)}
+                  className="px-2 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded text-[10px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
+                >
+                  <Plus className="h-3 w-3 stroke-[2.5]" />
+                  <span>New Template</span>
+                </button>
+              </div>
+
+              <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+                {templates.map((tpl) => {
+                  const isActive = activeTemplate?.id === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      onClick={() => selectTemplate(tpl.id)}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between border transition-all ${
+                        isActive
+                          ? 'bg-white border-brand-500 font-bold text-brand-700 shadow-2xs ring-1 ring-brand-500/20'
+                          : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
+                      }`}
+                    >
+                      <div className="truncate pr-1">
+                        <div className="truncate text-[11px]">{tpl.name}</div>
+                        <div className="text-[9px] text-slate-400 font-normal">{tpl.page_format.replace('_', ' ')}</div>
+                      </div>
+                      {isActive && <div className="h-2 w-2 rounded-full bg-brand-600 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div>
               <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-1">
                 Upload Custom Template
@@ -345,7 +394,7 @@ export const LeftPanel: React.FC = () => {
             <div>
               <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-2">Canvas Background Color</h3>
               <div className="flex items-center space-x-2">
-                {['#FCFAF5', '#FFFFFF', '#FFFDF7', '#F8FAFC', '#0F2841'].map((c) => (
+                {['#FCFAF5', '#FFFFFF', '#FFFDF7', '#F8FAFC', '#F0F9FF', '#0F2841'].map((c) => (
                   <button
                     key={c}
                     onClick={() => {
@@ -364,44 +413,35 @@ export const LeftPanel: React.FC = () => {
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-2">Design Presets</h3>
+              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-2">Apply Design Preset</h3>
               <div className="space-y-1.5">
-                <button
-                  onClick={async () => {
-                    if (!activeTemplate) return;
-                    const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ preset: 'academic' })
-                    });
-                    if (resp.ok) {
-                      const updated = await resp.json();
-                      useProjectStore.setState({ activeTemplate: updated });
-                    }
-                  }}
-                  className="w-full text-left p-2.5 border border-slate-200 hover:border-brand-500 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  <div className="text-xs font-semibold text-slate-800">Classic Academic Honors</div>
-                  <div className="text-[10px] text-slate-500">Gold fine borders, Cinzel serif typography</div>
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!activeTemplate) return;
-                    const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ preset: 'executive' })
-                    });
-                    if (resp.ok) {
-                      const updated = await resp.json();
-                      useProjectStore.setState({ activeTemplate: updated });
-                    }
-                  }}
-                  className="w-full text-left p-2.5 border border-slate-200 hover:border-brand-500 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  <div className="text-xs font-semibold text-slate-800">Modern Executive Diploma</div>
-                  <div className="text-[10px] text-slate-500">Navy header accent, Montserrat typography</div>
-                </button>
+                {[
+                  { key: 'academic', title: 'Classic Academic Honors', desc: 'Gold borders, Cinzel serif typography' },
+                  { key: 'executive', title: 'Modern Executive Diploma', desc: 'Emerald geometric accents, modern fonts' },
+                  { key: 'tech', title: 'Innovation & Tech Summit', desc: 'Indigo styling, hash code, verification QR' },
+                  { key: 'appreciation', title: 'Certificate of Appreciation', desc: 'Warm bronze accents, appreciation citation' },
+                  { key: 'completion', title: 'Course Completion & Mastery', desc: 'Accreditation ribbon, course curriculum' },
+                ].map((preset) => (
+                  <button
+                    key={preset.key}
+                    onClick={async () => {
+                      if (!activeTemplate) return;
+                      const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preset: preset.key })
+                      });
+                      if (resp.ok) {
+                        const updated = await resp.json();
+                        useProjectStore.setState({ activeTemplate: updated });
+                      }
+                    }}
+                    className="w-full text-left p-2.5 border border-slate-200 hover:border-brand-500 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="text-xs font-semibold text-slate-800">{preset.title}</div>
+                    <div className="text-[10px] text-slate-500">{preset.desc}</div>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
