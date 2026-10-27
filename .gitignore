@@ -24,10 +24,11 @@ ENV/
 
 # Databases
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
-backend/certiform.db
-test_certiform.db
+backend/certiform.db*
+test_certiform.db*
 
 # Storage artifacts
 backend/storage/generated/*
