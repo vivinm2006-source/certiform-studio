@@ -93,7 +93,12 @@ if (frontend_dist / "index.html").exists():
         file_path = frontend_dist / full_path
         if full_path and file_path.is_file():
             return FileResponse(str(file_path))
-        return FileResponse(str(frontend_dist / "index.html"))
+        resp = FileResponse(str(frontend_dist / "index.html"))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        resp.headers["Clear-Site-Data"] = '"cache"'
+        return resp
 
 if __name__ == "__main__":
     import uvicorn
