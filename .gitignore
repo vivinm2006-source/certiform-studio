@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+frontend/dist/
+build/
+.vercel/
+
+# Python
+__pycache__/
+backend/**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+backend/certiform.db
+test_certiform.db
+
+# Storage artifacts
+backend/storage/generated/*
+backend/storage/uploads/*
+!backend/storage/generated/.gitkeep
+!backend/storage/uploads/.gitkeep
+storage/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

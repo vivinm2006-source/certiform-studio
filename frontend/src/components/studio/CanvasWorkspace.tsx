@@ -1,0 +1,864 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { 
+  ZoomIn, ZoomOut, Maximize2, RotateCcw, Lock, Eye, 
+  Trash2, Copy, Move, CheckSquare, Grid, Compass, 
+  AlignLeft, AlignCenter, AlignRight, Layers, Sparkles,
+  Download, Edit3, X, RefreshCw, Sliders, Upload
+} from 'lucide-react';
+import { CanvasElement } from '../../types';
+import { useProjectStore } from '../../store/useProjectStore';
+import { useCanvasStore } from '../../store/useCanvasStore';
+import { CanvasOverlayInput } from './CanvasOverlayInput';
+import { TemplateSettingsModal } from './TemplateSettingsModal';
+import { api } from '../../services/api';
+
+// Helper to resolve text binding variables in browser preview
+function resolveText(templateStr: string | undefined, data: Record<string, any>, credentialId?: string): string {
+  if (!templateStr) return '';
+  const merged: Record<string, any> = { ...data };
+  if (credentialId) {
+    merged['certificate_id'] = credentialId;
+    merged['credential_id'] = credentialId;
+  }
+  return templateStr.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+    const cleanKey = key.trim();
+    const val = merged[cleanKey] ?? merged[cleanKey.toLowerCase().replace(/ /g, '_')];
+    return val !== undefined ? String(val) : `{{${cleanKey}}}`;
+  });
+}
+
+export const CanvasWorkspace: React.FC = () => {
+  const { activeTemplate, recipients, activeRecipientIndex, updateActiveRecipientData } = useProjectStore();
+  const { 
+    zoom, setZoom, selectedElementId, setSelectedElementId,
+    editingElementId, setEditingElementId, showGrid, toggleGrid,
+    showRulers, toggleRulers, showSafeMargin, toggleSafeMargin,
+    updateElementProps, deleteElement, duplicateElement
+  } = useCanvasStore();
+
+  const [showLiveInputDrawer, setShowLiveInputDrawer] = useState(false);
+  const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeRec = recipients[activeRecipientIndex];
+  const recData = activeRec?.data || {};
+
+  // Standard base canvas dimensions in CSS pixels (1 pt ≈ 1.25 px for clean high-DPI display)
+  const baseWidthPx = (activeTemplate?.width_pt || 841.89) * 1.2;
+  const baseHeightPx = (activeTemplate?.height_pt || 595.28) * 1.2;
+
+  // Snapping guides state
+  const [snapGuideX, setSnapGuideX] = useState<number | null>(null);
+  const [snapGuideY, setSnapGuideY] = useState<number | null>(null);
+
+  // Dragging and resizing interaction state
+  const [dragState, setDragState] = useState<{
+    elementId: string;
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    initialW: number;
+    initialH: number;
+    handle?: string;
+  } | null>(null);
+
+  // Keyboard navigation & nudging
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (editingElementId || !selectedElementId) return;
+      const el = activeTemplate?.elements.find((el) => el.id === selectedElementId);
+      if (!el || el.is_locked) return;
+
+      const step = e.shiftKey ? 0.02 : 0.005;
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        updateElementProps(el.id, { y: Math.max(0, el.y - step) });
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        updateElementProps(el.id, { y: Math.min(1 - el.height, el.y + step) });
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        updateElementProps(el.id, { x: Math.max(0, el.x - step) });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        updateElementProps(el.id, { x: Math.min(1 - el.width, el.x + step) });
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteElement(el.id);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElementId, editingElementId, activeTemplate]);
+
+  // Pointer move & up handlers for dragging/resizing with smart center-snapping
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!dragState) return;
+
+      const dx = (e.clientX - dragState.startX) / (baseWidthPx * zoom);
+      const dy = (e.clientY - dragState.startY) / (baseHeightPx * zoom);
+
+      if (!dragState.handle) {
+        // Dragging whole element
+        let newX = Math.max(0, Math.min(1 - dragState.initialW, dragState.initialX + dx));
+        let newY = Math.max(0, Math.min(1 - dragState.initialH, dragState.initialY + dy));
+
+        // Snap to horizontal center (x = 0.5 - w/2) within threshold of 0.015
+        const centerX = 0.5 - dragState.initialW / 2;
+        if (Math.abs(newX - centerX) < 0.015) {
+          newX = centerX;
+          setSnapGuideX(0.5);
+        } else {
+          setSnapGuideX(null);
+        }
+
+        // Snap to vertical center (y = 0.5 - h/2) within threshold
+        const centerY = 0.5 - dragState.initialH / 2;
+        if (Math.abs(newY - centerY) < 0.015) {
+          newY = centerY;
+          setSnapGuideY(0.5);
+        } else {
+          setSnapGuideY(null);
+        }
+
+        updateElementProps(dragState.elementId, { x: newX, y: newY });
+      } else {
+        // Resizing with 8 handles
+        let newX = dragState.initialX;
+        let newY = dragState.initialY;
+        let newW = dragState.initialW;
+        let newH = dragState.initialH;
+
+        if (dragState.handle.includes('e')) newW = Math.max(0.02, dragState.initialW + dx);
+        if (dragState.handle.includes('s')) newH = Math.max(0.02, dragState.initialH + dy);
+        if (dragState.handle.includes('w')) {
+          const clampedDx = Math.min(dx, dragState.initialW - 0.02);
+          newX = dragState.initialX + clampedDx;
+          newW = dragState.initialW - clampedDx;
+        }
+        if (dragState.handle.includes('n')) {
+          const clampedDy = Math.min(dy, dragState.initialH - 0.02);
+          newY = dragState.initialY + clampedDy;
+          newH = dragState.initialH - clampedDy;
+        }
+
+        updateElementProps(dragState.elementId, {
+          x: Math.max(0, newX),
+          y: Math.max(0, newY),
+          width: Math.min(1, newW),
+          height: Math.min(1, newH),
+        });
+      }
+    };
+
+    const handlePointerUp = () => {
+      if (dragState) {
+        setDragState(null);
+        setSnapGuideX(null);
+        setSnapGuideY(null);
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [dragState, baseWidthPx, baseHeightPx, zoom]);
+
+  const fitToScreen = () => {
+    if (!containerRef.current) return;
+    const availW = containerRef.current.clientWidth - 100;
+    const availH = containerRef.current.clientHeight - 100;
+    const scale = Math.min(availW / baseWidthPx, availH / baseHeightPx, 1.0);
+    setZoom(Number(scale.toFixed(2)));
+  };
+
+  // Quick 1-click center alignment action
+  const centerSelectedElement = () => {
+    if (!selectedElementId || !activeTemplate) return;
+    const el = activeTemplate.elements.find(e => e.id === selectedElementId);
+    if (!el) return;
+    const centeredX = (1.0 - el.width) / 2;
+    updateElementProps(el.id, { x: centeredX });
+  };
+
+  // Quick switch to preset
+  const handleLoadPreset = async (preset: 'academic' | 'executive') => {
+    if (!activeTemplate) return;
+    try {
+      const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preset })
+      });
+      if (resp.ok) {
+        const updated = await resp.json();
+        useProjectStore.setState({ activeTemplate: updated });
+        setSelectedElementId(null);
+      }
+    } catch (err) {
+      console.error('Failed to load preset:', err);
+    }
+  };
+
+  const handleDownloadActivePdf = async () => {
+    if (!activeTemplate) return;
+    setIsExporting(true);
+    try {
+      const resp = await fetch('/api/v1/render/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template: {
+            width_pt: activeTemplate.width_pt,
+            height_pt: activeTemplate.height_pt,
+            background_color: activeTemplate.background_color,
+            background_asset_url: activeTemplate.background_asset_url,
+          },
+          elements: activeTemplate.elements,
+          recipient_data: recData,
+          format: 'pdf',
+          credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
+        }),
+      });
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${recData.recipient_name || 'Certificate'}.pdf`;
+      a.click();
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadActivePng = async () => {
+    if (!activeTemplate) return;
+    setIsExporting(true);
+    try {
+      const resp = await api.renderPreview({
+        template: {
+          width_pt: activeTemplate.width_pt,
+          height_pt: activeTemplate.height_pt,
+          background_color: activeTemplate.background_color,
+          background_asset_url: activeTemplate.background_asset_url,
+        },
+        elements: activeTemplate.elements,
+        recipient_data: recData,
+        format: 'png',
+        credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
+      });
+      const a = document.createElement('a');
+      a.href = resp.data_url;
+      a.download = `${recData.recipient_name || 'Certificate'}.png`;
+      a.click();
+    } catch (err) {
+      console.error('PNG export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const selectedEl = activeTemplate?.elements.find((el) => el.id === selectedElementId);
+  const editingEl = activeTemplate?.elements.find((el) => el.id === editingElementId);
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-slate-200/60 overflow-hidden relative select-none">
+      {/* Top Floating Canvas Toolbar */}
+      <div className="h-11 bg-white border-b border-slate-200 px-4 flex items-center justify-between z-20 shadow-xs">
+        {/* Zoom Controls */}
+        <div className="flex items-center space-x-1.5 text-xs">
+          <button
+            onClick={() => setZoom(Math.max(0.25, zoom - 0.1))}
+            className="p-1.5 rounded hover:bg-slate-100 text-slate-600"
+            title="Zoom Out"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <span className="font-semibold text-slate-700 min-w-[42px] text-center font-mono text-[11px]">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setZoom(Math.min(3.0, zoom + 0.1))}
+            className="p-1.5 rounded hover:bg-slate-100 text-slate-600"
+            title="Zoom In"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+          <button
+            onClick={fitToScreen}
+            className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 flex items-center space-x-1 font-medium text-[11px]"
+            title="Fit to screen"
+          >
+            <Maximize2 className="h-3 w-3" />
+            <span>Fit Canvas</span>
+          </button>
+          <button
+            onClick={() => setZoom(1.0)}
+            className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 font-medium text-[11px]"
+            title="100% Zoom"
+          >
+            100%
+          </button>
+        </div>
+
+        {/* Quick Alignment & Template Preset Tools */}
+        <div className="flex items-center space-x-2">
+          {selectedEl && (
+            <button
+              onClick={centerSelectedElement}
+              className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded text-[11px] font-semibold flex items-center space-x-1"
+              title="Align Selected Element Horizontally Center"
+            >
+              <AlignCenter className="h-3 w-3" />
+              <span>Center in Certificate</span>
+            </button>
+          )}
+
+          <div className="flex items-center space-x-1 bg-slate-100 p-0.5 rounded border border-slate-200 text-[11px]">
+            <span className="text-slate-400 px-1 font-medium text-[10px]">PRESET:</span>
+            <button
+              onClick={() => handleLoadPreset('academic')}
+              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 font-medium transition-colors"
+            >
+              Classic Academic
+            </button>
+            <button
+              onClick={() => handleLoadPreset('executive')}
+              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 font-medium transition-colors"
+            >
+              Modern Executive
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowTemplateSettingsModal(true)}
+            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Edit template name, upload custom certificate design, or adjust paper format"
+          >
+            <Sliders className="h-3 w-3 text-slate-500" />
+            <span>Edit Template</span>
+          </button>
+        </div>
+
+        {/* View toggles & Quick Export Actions */}
+        <div className="flex items-center space-x-2 text-xs">
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={toggleGrid}
+              className={`p-1.5 rounded transition-colors ${showGrid ? 'bg-brand-50 text-brand-600 font-semibold' : 'hover:bg-slate-100 text-slate-500'}`}
+              title="Toggle Alignment Grid"
+            >
+              <Grid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={toggleRulers}
+              className={`p-1.5 rounded transition-colors ${showRulers ? 'bg-brand-50 text-brand-600 font-semibold' : 'hover:bg-slate-100 text-slate-500'}`}
+              title="Toggle Rulers"
+            >
+              <Compass className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={toggleSafeMargin}
+              className={`p-1.5 rounded transition-colors ${showSafeMargin ? 'bg-brand-50 text-brand-600 font-semibold' : 'hover:bg-slate-100 text-slate-500'}`}
+              title="Toggle Safe Margins"
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+
+          {/* Live Input Fill Drawer Toggle */}
+          <button
+            onClick={() => setShowLiveInputDrawer(!showLiveInputDrawer)}
+            className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center space-x-1.5 transition-colors ${
+              showLiveInputDrawer
+                ? 'bg-brand-500 text-white shadow-2xs'
+                : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+            }`}
+            title="Open Live Input Fill Drawer"
+          >
+            <Edit3 className="h-3 w-3" />
+            <span>Fill Certificate Data</span>
+          </button>
+
+          {/* Quick PDF & PNG Download Buttons */}
+          <button
+            onClick={handleDownloadActivePdf}
+            disabled={isExporting}
+            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Download current recipient certificate as Vector PDF"
+          >
+            {isExporting ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+            <span>PDF</span>
+          </button>
+
+          <button
+            onClick={handleDownloadActivePng}
+            disabled={isExporting}
+            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Download current recipient certificate as High-Res PNG"
+          >
+            <Download className="h-3 w-3 text-slate-500" />
+            <span>PNG</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Canvas Scroll Area with Rulers */}
+      <div
+        ref={containerRef}
+        onClick={() => {
+          setSelectedElementId(null);
+          setEditingElementId(null);
+        }}
+        className={`flex-1 overflow-auto flex p-10 ${showGrid ? 'canvas-grid-pattern' : ''}`}
+      >
+        <div className="m-auto relative flex items-center justify-center">
+          <div
+            style={{
+              width: `${baseWidthPx * zoom}px`,
+              height: `${baseHeightPx * zoom}px`,
+              backgroundColor: activeTemplate?.background_color || '#FFFFFF',
+              position: 'relative',
+            }}
+            className="canvas-shadow transition-shadow rounded-xs relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+          {/* Background image if set */}
+          {activeTemplate?.background_asset_url && (
+            <img
+              src={activeTemplate.background_asset_url}
+              alt="Certificate Background"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+          )}
+
+          {/* Center Smart Snapping Guidelines */}
+          {snapGuideX !== null && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${snapGuideX * 100}%`,
+                top: 0,
+                bottom: 0,
+                width: '1px',
+                backgroundColor: '#0066CC',
+                zIndex: 40,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          {snapGuideY !== null && (
+            <div
+              style={{
+                position: 'absolute',
+                top: `${snapGuideY * 100}%`,
+                left: 0,
+                right: 0,
+                height: '1px',
+                backgroundColor: '#0066CC',
+                zIndex: 40,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+
+          {/* Safe Margin Guide (dashed border 2% from edges) */}
+          {showSafeMargin && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '2%',
+                top: '2%',
+                width: '96%',
+                height: '96%',
+                border: '1px dashed rgba(200, 157, 66, 0.45)',
+                pointerEvents: 'none',
+                zIndex: 10,
+              }}
+            />
+          )}
+
+          {/* Canvas Elements */}
+          {activeTemplate?.elements
+            .filter((el) => el.is_visible)
+            .sort((a, b) => a.layer_order - b.layer_order)
+            .map((el) => {
+              const isSelected = selectedElementId === el.id;
+              const isEditing = editingElementId === el.id;
+
+              // Render element contents
+              let renderedContent = null;
+              const justifyClass = el.vertical_align === 'top' ? 'justify-start' : el.vertical_align === 'bottom' ? 'justify-end' : 'justify-center';
+              const alignClass = el.text_align === 'left' ? 'items-start text-left' : el.text_align === 'right' ? 'items-end text-right' : 'items-center text-center';
+
+              if (el.element_type === 'dynamic_text') {
+                const textVal = el.binding_key
+                  ? String(recData[el.binding_key] ?? el.content ?? '')
+                  : resolveText(el.content, recData, 'CERT-2026-000125');
+
+                const scaledFont = Math.max(8, el.font_size * zoom * (baseWidthPx / 841.89));
+
+                renderedContent = (
+                  <div
+                    className={`w-full h-full flex flex-col ${justifyClass} ${alignClass} overflow-hidden whitespace-pre-line`}
+                    style={{
+                      fontFamily: el.font_family,
+                      fontSize: `${scaledFont}px`,
+                      fontWeight: el.font_weight,
+                      fontStyle: el.font_style,
+                      textDecoration: el.text_decoration,
+                      color: el.color,
+                      textAlign: el.text_align,
+                      textTransform: el.uppercase ? 'uppercase' : 'none',
+                      lineHeight: el.line_height,
+                      letterSpacing: el.letter_spacing ? `${el.letter_spacing}px` : undefined,
+                    }}
+                  >
+                    <span className={`w-full block leading-snug ${el.text_align === 'left' ? 'text-left' : el.text_align === 'right' ? 'text-right' : 'text-center'}`}>
+                      {textVal || 'Double click to type'}
+                    </span>
+                  </div>
+                );
+              } else if (el.element_type === 'static_text') {
+                const textVal = resolveText(el.content, recData);
+                const scaledFont = Math.max(8, el.font_size * zoom * (baseWidthPx / 841.89));
+
+                renderedContent = (
+                  <div
+                    className={`w-full h-full flex flex-col ${justifyClass} ${alignClass} overflow-hidden whitespace-pre-line`}
+                    style={{
+                      fontFamily: el.font_family,
+                      fontSize: `${scaledFont}px`,
+                      fontWeight: el.font_weight,
+                      fontStyle: el.font_style,
+                      textDecoration: el.text_decoration,
+                      color: el.color,
+                      textAlign: el.text_align,
+                      textTransform: el.uppercase ? 'uppercase' : 'none',
+                      lineHeight: el.line_height,
+                      letterSpacing: el.letter_spacing ? `${el.letter_spacing}px` : undefined,
+                    }}
+                  >
+                    <span className={`w-full block leading-snug ${el.text_align === 'left' ? 'text-left' : el.text_align === 'right' ? 'text-right' : 'text-center'}`}>
+                      {textVal}
+                    </span>
+                  </div>
+                );
+              } else if (el.element_type === 'qr_code') {
+                renderedContent = (
+                  <div className="w-full h-full flex items-center justify-center p-1 bg-white border border-slate-200 rounded shadow-xs">
+                    <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900">
+                      <rect x="0" y="0" width="30" height="30" fill="currentColor" />
+                      <rect x="5" y="5" width="20" height="20" fill="#fff" />
+                      <rect x="10" y="10" width="10" height="10" fill="currentColor" />
+                      <rect x="70" y="0" width="30" height="30" fill="currentColor" />
+                      <rect x="75" y="5" width="20" height="20" fill="#fff" />
+                      <rect x="80" y="10" width="10" height="10" fill="currentColor" />
+                      <rect x="0" y="70" width="30" height="30" fill="currentColor" />
+                      <rect x="5" y="75" width="20" height="20" fill="#fff" />
+                      <rect x="10" y="80" width="10" height="10" fill="currentColor" />
+                      <rect x="40" y="40" width="20" height="20" fill="currentColor" />
+                      <rect x="45" y="45" width="10" height="10" fill="#fff" />
+                      <circle cx="50" cy="50" r="3" fill="currentColor" />
+                      <rect x="40" y="10" width="15" height="10" fill="currentColor" />
+                      <rect x="10" y="45" width="10" height="15" fill="currentColor" />
+                      <rect x="70" y="50" width="15" height="20" fill="currentColor" />
+                      <rect x="45" y="75" width="20" height="15" fill="currentColor" />
+                    </svg>
+                  </div>
+                );
+              } else if (el.element_type === 'signature') {
+                if (el.asset_url) {
+                  renderedContent = (
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                      <img
+                        src={el.asset_url}
+                        alt="Signature"
+                        className="max-w-full max-h-full object-contain pointer-events-none"
+                      />
+                    </div>
+                  );
+                } else {
+                  // Authentic cursive font rendering for typed signature
+                  const signerName = el.content || 'Authorized Signer';
+                  const scaledFont = Math.max(16, (el.font_size || 28) * zoom * (baseWidthPx / 841.89));
+                  renderedContent = (
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={{
+                        fontFamily: el.font_family || 'Great Vibes',
+                        fontSize: `${scaledFont}px`,
+                        color: el.color || '#0F2841',
+                        letterSpacing: '1px',
+                      }}
+                    >
+                      {signerName}
+                    </div>
+                  );
+                }
+              } else if (el.element_type === 'image') {
+                renderedContent = (
+                  <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                    {el.asset_url ? (
+                      <img
+                        src={el.asset_url}
+                        alt="Asset"
+                        className="max-w-full max-h-full object-contain pointer-events-none"
+                      />
+                    ) : (
+                      <div className="border border-dashed border-slate-300 w-full h-full flex items-center justify-center text-[10px] text-slate-400">
+                        Image Placeholder
+                      </div>
+                    )}
+                  </div>
+                );
+              } else if (el.element_type === 'shape') {
+                const borderW = (el.border_width || 1) * zoom;
+                if (el.shape_type === 'line') {
+                  renderedContent = (
+                    <div
+                      className="w-full h-0 border-t"
+                      style={{
+                        borderColor: el.border_color,
+                        borderTopWidth: `${Math.max(1, borderW)}px`,
+                      }}
+                    />
+                  );
+                } else {
+                  renderedContent = (
+                    <div
+                      className="w-full h-full"
+                      style={{
+                        borderColor: el.border_color,
+                        borderWidth: `${borderW}px`,
+                        borderStyle: 'solid',
+                        backgroundColor: el.fill_color || 'transparent',
+                        borderRadius: el.shape_type === 'circle' ? '9999px' : '0px',
+                      }}
+                    />
+                  );
+                }
+              }
+
+              // Normalized geometry to canvas pixels
+              const elLeft = el.x * baseWidthPx * zoom;
+              const elTop = el.y * baseHeightPx * zoom;
+              const elWidth = el.width * baseWidthPx * zoom;
+              const elHeight = el.height * baseHeightPx * zoom;
+
+              // Check if this is an empty decorative border frame
+              const isHollowFrame = el.element_type === 'shape' && !el.fill_color && (el.is_locked || !isSelected);
+
+              return (
+                <div
+                  key={el.id}
+                  style={{
+                    position: 'absolute',
+                    left: `${elLeft}px`,
+                    top: `${elTop}px`,
+                    width: `${elWidth}px`,
+                    height: `${elHeight}px`,
+                    transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+                    zIndex: el.layer_order + 1,
+                    // If locked or a hollow border, do not intercept clicks so user can click elements inside!
+                    pointerEvents: isHollowFrame ? 'none' : 'auto',
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElementId(el.id);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (el.element_type === 'dynamic_text' || el.element_type === 'static_text') {
+                      setSelectedElementId(el.id);
+                      setEditingElementId(el.id);
+                    }
+                  }}
+                  onPointerDown={(e) => {
+                    if (el.is_locked || isEditing) return;
+                    e.stopPropagation();
+                    setSelectedElementId(el.id);
+                    setDragState({
+                      elementId: el.id,
+                      startX: e.clientX,
+                      startY: e.clientY,
+                      initialX: el.x,
+                      initialY: el.y,
+                      initialW: el.width,
+                      initialH: el.height,
+                    });
+                  }}
+                  className={`group relative cursor-move ${
+                    isSelected ? 'ring-2 ring-brand-500 ring-offset-1 shadow-sm' : 'hover:ring-1 hover:ring-brand-300/60'
+                  }`}
+                >
+                  {renderedContent}
+
+                  {/* 8 Resize Handles when selected */}
+                  {isSelected && !el.is_locked && !isEditing && (
+                    <>
+                      {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((handle) => {
+                        let handleClass = 'absolute w-2 h-2 bg-white border border-brand-500 rounded-xs z-30 ';
+                        if (handle === 'nw') handleClass += '-top-1 -left-1 cursor-nwse-resize';
+                        if (handle === 'n') handleClass += '-top-1 left-1/2 -translate-x-1/2 cursor-ns-resize';
+                        if (handle === 'ne') handleClass += '-top-1 -right-1 cursor-nesw-resize';
+                        if (handle === 'e') handleClass += 'top-1/2 -right-1 -translate-y-1/2 cursor-ew-resize';
+                        if (handle === 'se') handleClass += '-bottom-1 -right-1 cursor-nwse-resize';
+                        if (handle === 's') handleClass += '-bottom-1 left-1/2 -translate-x-1/2 cursor-ns-resize';
+                        if (handle === 'sw') handleClass += '-bottom-1 -left-1 cursor-nesw-resize';
+                        if (handle === 'w') handleClass += 'top-1/2 -left-1 -translate-y-1/2 cursor-ew-resize';
+
+                        return (
+                          <div
+                            key={handle}
+                            className={handleClass}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              setDragState({
+                                elementId: el.id,
+                                startX: e.clientX,
+                                startY: e.clientY,
+                                initialX: el.x,
+                                initialY: el.y,
+                                initialW: el.width,
+                                initialH: el.height,
+                                handle,
+                              });
+                            }}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
+          {/* Stable Inline Editing Input Overlay */}
+          {editingEl && (
+            <CanvasOverlayInput
+              element={editingEl}
+              canvasWidthPx={baseWidthPx}
+              canvasHeightPx={baseHeightPx}
+              zoom={zoom}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+
+      {/* Sliding Live Input Fill Drawer */}
+      {showLiveInputDrawer && (
+        <div className="absolute right-4 top-14 w-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 p-5 z-40 animate-in slide-in-from-right-4 duration-200">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="h-4 w-4 text-brand-600" />
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Live Certificate Inputs
+              </h4>
+            </div>
+            <button
+              onClick={() => setShowLiveInputDrawer(false)}
+              className="p-1 rounded text-slate-400 hover:text-slate-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3 py-3 text-xs max-h-[70vh] overflow-y-auto">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 block">Recipient Full Name</label>
+              <input
+                type="text"
+                value={recData.recipient_name || ''}
+                onChange={(e) => updateActiveRecipientData('recipient_name', e.target.value)}
+                placeholder="Enter recipient name"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 block">Event / Program Name</label>
+              <input
+                type="text"
+                value={recData.event_name || ''}
+                onChange={(e) => updateActiveRecipientData('event_name', e.target.value)}
+                placeholder="Enter event name"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 block">Date of Conformance</label>
+              <input
+                type="text"
+                value={recData.event_date || ''}
+                onChange={(e) => updateActiveRecipientData('event_date', e.target.value)}
+                placeholder="e.g. October 27, 2026"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 block">Institution / Department</label>
+              <input
+                type="text"
+                value={recData.institution || ''}
+                onChange={(e) => updateActiveRecipientData('institution', e.target.value)}
+                placeholder="e.g. Academy of Sciences"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 block">Recipient Email</label>
+              <input
+                type="email"
+                value={recData.email || ''}
+                onChange={(e) => updateActiveRecipientData('email', e.target.value)}
+                placeholder="e.g. recipient@example.com"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <button
+              onClick={handleDownloadActivePdf}
+              disabled={isExporting}
+              className="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1"
+            >
+              <Download className="h-3 w-3" />
+              <span>Download PDF</span>
+            </button>
+            <button
+              onClick={handleDownloadActivePng}
+              disabled={isExporting}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
+            >
+              Download PNG
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Template Configuration & Custom Upload Modal */}
+      <TemplateSettingsModal
+        isOpen={showTemplateSettingsModal}
+        onClose={() => setShowTemplateSettingsModal(false)}
+      />
+    </div>
+  );
+};

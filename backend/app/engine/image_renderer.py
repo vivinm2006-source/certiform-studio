@@ -1,0 +1,266 @@
+import io
+import os
+import re
+import base64
+from typing import Dict, Any, List, Optional
+from PIL import Image, ImageDraw, ImageFont, ImageColor
+from app.config import settings
+from app.engine.coordinates import CoordinateTransformer, pt_to_px
+from app.engine.qr_generator import generate_qr_image
+
+def decode_asset(asset_url: Optional[str]) -> Optional[Image.Image]:
+    """Decode base64 data URL or load from storage path."""
+    if not asset_url:
+        return None
+    try:
+        if asset_url.startswith("data:image"):
+            # Format: data:image/png;base64,...
+            header, encoded = asset_url.split(",", 1)
+            data = base64.b64decode(encoded)
+            return Image.open(io.BytesIO(data)).convert("RGBA")
+        elif os.path.isfile(asset_url):
+            return Image.open(asset_url).convert("RGBA")
+        elif asset_url.startswith("/storage/"):
+            # Relative to STORAGE_DIR
+            relative = asset_url.replace("/storage/", "")
+            local_path = settings.STORAGE_DIR / relative
+            if local_path.exists():
+                return Image.open(str(local_path)).convert("RGBA")
+    except Exception as e:
+        print(f"Failed to decode asset: {e}")
+    return None
+
+def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], credential_id: Optional[str] = None) -> str:
+    """Resolve dynamic placeholder tags like {{recipient_name}}."""
+    if not template_str:
+        return ""
+    
+    merged = dict(recipient_data)
+    if credential_id:
+        merged["certificate_id"] = credential_id
+        merged["credential_id"] = credential_id
+    
+    def replacer(match):
+        key = match.group(1).strip()
+        val = merged.get(key)
+        if val is None:
+            # Check lowercase / sanitized key
+            key_norm = key.lower().replace(" ", "_")
+            val = merged.get(key_norm)
+        return str(val) if val is not None else match.group(0)
+    
+    return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+
+def get_pil_font(font_family: str, size_px: int, font_weight: str = "normal", font_style: str = "normal") -> ImageFont.ImageFont:
+    """Attempt to load matching system or standard TrueType font, fallback to default."""
+    # List of candidate font filenames on Windows/Linux
+    candidates = []
+    is_bold = "bold" in font_weight.lower() or font_weight in ("700", "800", "900")
+    is_italic = "italic" in font_style.lower()
+    
+    name_clean = font_family.lower().replace(" ", "")
+    if "greatvibes" in name_clean or "brush" in name_clean or "cursive" in name_clean or "caveat" in name_clean:
+        candidates = ["segoesc.ttf", "kunstler.ttf", "timesi.ttf"]
+    elif "cinzel" in name_clean or "playfair" in name_clean or "merriweather" in name_clean:
+        if is_bold and is_italic: candidates = ["georgiaz.ttf", "timesbi.ttf"]
+        elif is_bold: candidates = ["georgiab.ttf", "timesbd.ttf"]
+        else: candidates = ["georgia.ttf", "times.ttf"]
+    elif "times" in name_clean:
+        if is_bold and is_italic: candidates = ["timesbi.ttf", "Times-BoldItalic.ttf"]
+        elif is_bold: candidates = ["timesbd.ttf", "Times-Bold.ttf"]
+        elif is_italic: candidates = ["timesi.ttf", "Times-Italic.ttf"]
+        else: candidates = ["times.ttf", "Times.ttf"]
+    elif "serif" in name_clean or "georgia" in name_clean:
+        if is_bold and is_italic: candidates = ["georgiaz.ttf"]
+        elif is_bold: candidates = ["georgiab.ttf"]
+        elif is_italic: candidates = ["georgiai.ttf"]
+        else: candidates = ["georgia.ttf"]
+    elif "courier" in name_clean or "mono" in name_clean:
+        if is_bold: candidates = ["courbd.ttf"]
+        else: candidates = ["cour.ttf"]
+    else:  # Arial / Helvetica / Montserrat / Sans-serif default
+        if is_bold and is_italic: candidates = ["segoeuiz.ttf", "arialbi.ttf", "DejaVuSans-BoldOblique.ttf"]
+        elif is_bold: candidates = ["segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf"]
+        elif is_italic: candidates = ["segoeuii.ttf", "ariali.ttf", "DejaVuSans-Oblique.ttf"]
+        else: candidates = ["segoeui.ttf", "arial.ttf", "DejaVuSans.ttf"]
+
+    # Search standard Windows Fonts directory
+    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
+    for candidate in candidates:
+        font_path = os.path.join(win_fonts, candidate)
+        if os.path.exists(font_path):
+            try:
+                return ImageFont.truetype(font_path, size=size_px)
+            except Exception:
+                pass
+        # Try local load
+        try:
+            return ImageFont.truetype(candidate, size=size_px)
+        except Exception:
+            pass
+            
+    # Fallback
+    try:
+        return ImageFont.truetype("arial.ttf", size=size_px)
+    except Exception:
+        return ImageFont.load_default()
+
+def render_certificate_image(
+    template_dict: Dict[str, Any],
+    elements: List[Dict[str, Any]],
+    recipient_data: Dict[str, Any],
+    credential_id: Optional[str] = None,
+    dpi: int = 300,
+    public_base_url: str = "http://localhost:5173"
+) -> Image.Image:
+    """
+    Render high-resolution raster certificate using Pillow.
+    Uses normalized coordinates (0.0 to 1.0) and converts to target DPI pixels.
+    """
+    width_pt = template_dict.get("width_pt", 841.89)
+    height_pt = template_dict.get("height_pt", 595.28)
+    
+    total_w_px = pt_to_px(width_pt, dpi)
+    total_h_px = pt_to_px(height_pt, dpi)
+    
+    transformer = CoordinateTransformer(width_pt, height_pt)
+    
+    # Create base image
+    bg_color = template_dict.get("background_color", "#FFFFFF")
+    canvas = Image.new("RGBA", (total_w_px, total_h_px), bg_color)
+    
+    # Render background image if available
+    bg_asset_url = template_dict.get("background_asset_url")
+    if bg_asset_url:
+        bg_img = decode_asset(bg_asset_url)
+        if bg_img:
+            bg_resized = bg_img.resize((total_w_px, total_h_px), Image.Resampling.LANCZOS)
+            canvas.alpha_composite(bg_resized)
+            
+    draw = ImageDraw.Draw(canvas)
+    
+    # Sort elements by layer_order
+    sorted_elements = sorted(elements, key=lambda e: e.get("layer_order", 0))
+    
+    for el in sorted_elements:
+        if not el.get("is_visible", True):
+            continue
+            
+        el_type = el.get("element_type")
+        x_px, y_px, w_px, h_px = transformer.to_pixels(
+            el.get("x", 0.0), el.get("y", 0.0), el.get("width", 0.2), el.get("height", 0.1), dpi=dpi
+        )
+        
+        if el_type in ("dynamic_text", "static_text"):
+            # Determine text content
+            if el_type == "dynamic_text":
+                b_key = el.get("binding_key")
+                if b_key:
+                    text_val = str(recipient_data.get(b_key, el.get("content", "")))
+                else:
+                    text_val = resolve_text_variables(el.get("content", ""), recipient_data, credential_id)
+            else:
+                text_val = resolve_text_variables(el.get("content", ""), recipient_data, credential_id)
+                
+            if el.get("uppercase", False):
+                text_val = text_val.upper()
+                
+            font_size_pt = el.get("font_size", 24.0)
+            font_size_px = pt_to_px(font_size_pt, dpi)
+            font_family = el.get("font_family", "Helvetica")
+            font_weight = el.get("font_weight", "normal")
+            font_style = el.get("font_style", "normal")
+            
+            font = get_pil_font(font_family, font_size_px, font_weight, font_style)
+            
+            # Auto-fit text if enabled and text overflows bounding box width
+            if el.get("auto_fit_text", True) and text_val:
+                curr_size_px = font_size_px
+                bbox = draw.multiline_textbbox((0, 0), text_val, font=font)
+                text_w = bbox[2] - bbox[0]
+                while text_w > w_px and curr_size_px > 10:
+                    curr_size_px = int(curr_size_px * 0.9)
+                    font = get_pil_font(font_family, curr_size_px, font_weight, font_style)
+                    bbox = draw.multiline_textbbox((0, 0), text_val, font=font)
+                    text_w = bbox[2] - bbox[0]
+                    
+            text_color = el.get("color", "#1A202C")
+            text_align = el.get("text_align", "center")
+            v_align = el.get("vertical_align", "middle")
+            
+            # Calculate alignment offset within bounding box using multiline bbox
+            bbox = draw.multiline_textbbox((0, 0), text_val, font=font, align=text_align)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            
+            if text_align == "center":
+                dest_x = x_px + (w_px - text_w) / 2
+            elif text_align == "right":
+                dest_x = x_px + w_px - text_w
+            else: # left
+                dest_x = x_px
+                
+            if v_align == "middle":
+                dest_y = y_px + (h_px - text_h) / 2
+            elif v_align == "bottom":
+                dest_y = y_px + h_px - text_h
+            else: # top
+                dest_y = y_px
+                
+            draw.multiline_text((dest_x, dest_y), text_val, fill=text_color, font=font, align=text_align)
+            
+        elif el_type == "qr_code":
+            # Canonical verification URL
+            cid = credential_id or "SAMPLE-000000"
+            verify_url = f"{public_base_url}/verify/{cid}"
+            qr_img = generate_qr_image(verify_url, scale=8, border=1)
+            # Resize to fit element box (preserve square aspect ratio)
+            side = min(w_px, h_px)
+            qr_resized = qr_img.resize((side, side), Image.Resampling.LANCZOS)
+            # Center in box
+            paste_x = x_px + (w_px - side) // 2
+            paste_y = y_px + (h_px - side) // 2
+            canvas.alpha_composite(qr_resized.convert("RGBA"), (paste_x, paste_y))
+            
+        elif el_type in ("image", "signature"):
+            asset_url = el.get("asset_url")
+            img_asset = decode_asset(asset_url)
+            if img_asset:
+                # Maintain aspect ratio within box
+                img_w, img_h = img_asset.size
+                ratio = min(w_px / img_w, h_px / img_h)
+                new_w = max(1, int(img_w * ratio))
+                new_h = max(1, int(img_h * ratio))
+                resized = img_asset.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                paste_x = x_px + (w_px - new_w) // 2
+                paste_y = y_px + (h_px - new_h) // 2
+                canvas.alpha_composite(resized, (paste_x, paste_y))
+                
+        elif el_type == "shape":
+            shape_type = el.get("shape_type", "rectangle")
+            border_w = pt_to_px(el.get("border_width", 1.0), dpi)
+            border_color = el.get("border_color", "#D1D5DB")
+            fill_color = el.get("fill_color")
+            
+            if shape_type == "rectangle" or shape_type == "border":
+                draw.rectangle(
+                    [x_px, y_px, x_px + w_px, y_px + h_px],
+                    fill=fill_color,
+                    outline=border_color if border_w > 0 else None,
+                    width=max(1, border_w) if border_w > 0 else 0
+                )
+            elif shape_type == "line":
+                draw.line(
+                    [x_px, y_px + h_px // 2, x_px + w_px, y_px + h_px // 2],
+                    fill=border_color,
+                    width=max(1, border_w)
+                )
+            elif shape_type == "circle":
+                draw.ellipse(
+                    [x_px, y_px, x_px + w_px, y_px + h_px],
+                    fill=fill_color,
+                    outline=border_color if border_w > 0 else None,
+                    width=max(1, border_w) if border_w > 0 else 0
+                )
+
+    return canvas
