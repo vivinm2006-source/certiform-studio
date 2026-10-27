@@ -5,8 +5,6 @@ frontend/node_modules/
 .pnp.js
 
 # Build outputs
-dist/
-frontend/dist/
 build/
 .vercel/
 
@@ -51,3 +49,4 @@ Thumbs.db
 .vercel
 pyproject.toml
 uv.lock
+.vercel

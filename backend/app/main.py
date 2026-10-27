@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.config import settings
+from app.config import settings, BASE_DIR
 from app.database import engine, Base
 from app.api import projects, templates, forms, recipients, signatures, issuance, verification
 
@@ -49,7 +50,19 @@ app.include_router(signatures.router, prefix="/v1")
 app.include_router(issuance.router, prefix="/v1")
 app.include_router(verification.router, prefix="/v1")
 
-@app.get("/")
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": "Not Found",
+            "scope_path": request.scope.get("path"),
+            "scope_root_path": request.scope.get("root_path"),
+            "url": str(request.url),
+            "raw_path": request.scope.get("raw_path", b"").decode("latin1", errors="replace")
+        }
+    )
+
 @app.get("/api")
 def api_root():
     return {
@@ -66,6 +79,21 @@ def health_check():
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION
     }
+
+# Serve built frontend assets
+frontend_dist = BASE_DIR.parent / "frontend" / "dist"
+if (frontend_dist / "index.html").exists():
+    if (frontend_dist / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="static_assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa_frontend(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("storage") or full_path.startswith("health"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        file_path = frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(frontend_dist / "index.html"))
 
 if __name__ == "__main__":
     import uvicorn
