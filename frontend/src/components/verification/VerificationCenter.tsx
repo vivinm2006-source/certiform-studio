@@ -108,12 +108,12 @@ export const VerificationCenter: React.FC = () => {
   });
 
   return (
-    <div className="flex-1 bg-slate-100 overflow-y-auto p-8 select-none">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="flex-1 bg-slate-100 overflow-y-auto p-3 sm:p-6 md:p-8 select-none">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="bg-white px-6 py-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div className="bg-white px-4 sm:px-6 py-4 sm:py-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
+            <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold flex-shrink-0">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
@@ -126,7 +126,7 @@ export const VerificationCenter: React.FC = () => {
         </div>
 
         {/* PUBLIC VERIFIER SEARCH TOOL */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
           <h3 className="font-bold text-slate-900 text-sm">Public Credential Lookup</h3>
           <p className="text-xs text-slate-500">
             Simulate a public employer, university, or verifier scanning a certificate's QR code or searching a Credential ID:

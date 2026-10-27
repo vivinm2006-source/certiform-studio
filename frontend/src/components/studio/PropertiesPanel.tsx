@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Type, AlignLeft, AlignCenter, AlignRight, Bold, Italic, 
   Underline, Move, Copy, Trash2, ArrowUp, ArrowDown, 
-  Layers, Lock, Sparkles, Sliders, ChevronDown 
+  Layers, Lock, Sparkles, Sliders, ChevronDown, X 
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useCanvasStore } from '../../store/useCanvasStore';
@@ -11,20 +11,40 @@ export const PropertiesPanel: React.FC = () => {
   const { activeTemplate, activeForm } = useProjectStore();
   const { 
     selectedElementId, updateElementProps, deleteElement, 
-    duplicateElement, reorderElement 
+    duplicateElement, reorderElement,
+    isPropertiesPanelOpen, setPropertiesPanelOpen 
   } = useCanvasStore();
+
+  if (!isPropertiesPanelOpen) return null;
 
   const selectedEl = activeTemplate?.elements.find((el) => el.id === selectedElementId);
 
   if (!selectedEl) {
     return (
-      <div className="w-80 bg-white border-l border-slate-200 p-6 flex flex-col items-center justify-center text-center select-none text-slate-400">
-        <Sliders className="h-8 w-8 mb-2 opacity-40 text-slate-400" />
-        <p className="text-xs font-semibold text-slate-600">No element selected</p>
-        <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] leading-relaxed">
-          Click any text, border, signature, or QR code on the certificate to inspect and refine its properties.
-        </p>
-      </div>
+      <>
+        <div
+          onClick={() => setPropertiesPanelOpen(false)}
+          className="fixed inset-0 bg-slate-900/40 z-30 md:hidden backdrop-blur-2xs"
+        />
+        <div className="fixed inset-y-0 right-0 w-80 max-w-[85vw] z-40 bg-white shadow-2xl flex flex-col border-l border-slate-200 md:relative md:w-80 md:z-20 md:shadow-none select-none flex-shrink-0 animate-in slide-in-from-right duration-150">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+            <span className="text-xs font-bold text-slate-800">Element Properties</span>
+            <button
+              onClick={() => setPropertiesPanelOpen(false)}
+              className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 p-6 flex flex-col items-center justify-center text-center select-none text-slate-400">
+            <Sliders className="h-8 w-8 mb-2 opacity-40 text-slate-400" />
+            <p className="text-xs font-semibold text-slate-600">No element selected</p>
+            <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] leading-relaxed">
+              Click any text, border, signature, or QR code on the certificate to inspect and refine its properties.
+            </p>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -62,34 +82,47 @@ export const PropertiesPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-80 bg-white border-l border-slate-200 flex flex-col h-full z-20 select-none overflow-y-auto">
-      {/* Header */}
-      <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-        <div className="flex items-center space-x-2">
-          <span className="text-[10px] font-mono uppercase bg-brand-100 text-brand-700 font-bold px-2 py-0.5 rounded">
-            {selectedEl.element_type.replace('_', ' ')}
-          </span>
-          <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
-            {selectedEl.binding_key || selectedEl.content || 'Properties'}
-          </span>
+    <>
+      {/* Mobile Drawer Backdrop */}
+      <div
+        onClick={() => setPropertiesPanelOpen(false)}
+        className="fixed inset-0 bg-slate-900/40 z-30 md:hidden backdrop-blur-2xs"
+      />
+      <div className="fixed inset-y-0 right-0 w-80 max-w-[85vw] z-40 bg-white shadow-2xl flex flex-col border-l border-slate-200 md:relative md:w-80 md:z-20 md:shadow-none select-none flex-shrink-0 animate-in slide-in-from-right duration-150 overflow-y-auto">
+        {/* Header */}
+        <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-mono uppercase bg-brand-100 text-brand-700 font-bold px-2 py-0.5 rounded">
+              {selectedEl.element_type.replace('_', ' ')}
+            </span>
+            <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
+              {selectedEl.binding_key || selectedEl.content || 'Properties'}
+            </span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => duplicateElement(selectedEl.id)}
+              className="p-1 rounded hover:bg-slate-200 text-slate-600"
+              title="Duplicate Element"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => deleteElement(selectedEl.id)}
+              className="p-1 rounded hover:bg-rose-100 text-rose-600"
+              title="Delete Element"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setPropertiesPanelOpen(false)}
+              className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 ml-1"
+              title="Close Properties"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={() => duplicateElement(selectedEl.id)}
-            className="p-1 rounded hover:bg-slate-200 text-slate-600"
-            title="Duplicate Element"
-          >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => deleteElement(selectedEl.id)}
-            className="p-1 rounded hover:bg-rose-100 text-rose-600"
-            title="Delete Element"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
 
       <div className="p-4 space-y-5 text-xs text-slate-700">
         {/* Dynamic Variable Binding (if dynamic text) */}
@@ -438,5 +471,6 @@ export const PropertiesPanel: React.FC = () => {
         </div>
       </div>
     </div>
-  );
+  </>
+);
 };

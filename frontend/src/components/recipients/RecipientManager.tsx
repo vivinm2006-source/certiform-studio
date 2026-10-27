@@ -128,9 +128,9 @@ export const RecipientManager: React.FC = () => {
   return (
     <div className="flex-1 bg-white flex flex-col h-full overflow-hidden select-none">
       {/* Action Header */}
-      <div className="h-14 border-b border-slate-200 px-6 flex items-center justify-between bg-slate-50">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 shadow-xs w-64">
+      <div className="min-h-14 py-2 border-b border-slate-200 px-3 sm:px-6 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50 flex-shrink-0">
+        <div className="flex items-center flex-wrap gap-2.5 sm:space-x-3">
+          <div className="flex items-center space-x-2 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 shadow-xs w-full sm:w-64">
             <Search className="h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
@@ -156,7 +156,7 @@ export const RecipientManager: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center flex-wrap gap-2">
           <label className="flex items-center space-x-1.5 bg-white border border-slate-300 hover:border-brand-500 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs transition-colors">
             <Upload className="h-3.5 w-3.5 text-brand-600" />
             <span>Import CSV / Excel</span>

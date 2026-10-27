@@ -20,6 +20,14 @@ interface CanvasState {
   isSaving: boolean;
   lastSavedAt: Date | null;
 
+  // Panel visibility for responsive mobile and desktop layout
+  isLeftPanelOpen: boolean;
+  isPropertiesPanelOpen: boolean;
+  toggleLeftPanel: () => void;
+  togglePropertiesPanel: () => void;
+  setLeftPanelOpen: (open: boolean) => void;
+  setPropertiesPanelOpen: (open: boolean) => void;
+
   // Actions
   setZoom: (zoom: number) => void;
   setSelectedElementId: (id: string | null) => void;
@@ -58,8 +66,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isSaving: false,
   lastSavedAt: null,
 
+  // Responsive panel defaults: Left open on desktop (>=1024px), properties open on wider screens (>=1280px)
+  isLeftPanelOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  isPropertiesPanelOpen: typeof window !== 'undefined' ? window.innerWidth >= 1280 : false,
+  toggleLeftPanel: () => set((s) => ({ isLeftPanelOpen: !s.isLeftPanelOpen })),
+  togglePropertiesPanel: () => set((s) => ({ isPropertiesPanelOpen: !s.isPropertiesPanelOpen })),
+  setLeftPanelOpen: (open) => set({ isLeftPanelOpen: open }),
+  setPropertiesPanelOpen: (open) => set({ isPropertiesPanelOpen: open }),
+
   setZoom: (zoom) => set({ zoom: Math.min(Math.max(zoom, 0.25), 4.0) }),
-  setSelectedElementId: (id) => set({ selectedElementId: id }),
+  setSelectedElementId: (id) => {
+    // If an element is selected on desktop, ensure properties panel is visible
+    if (id && typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      set({ selectedElementId: id, isPropertiesPanelOpen: true });
+    } else {
+      set({ selectedElementId: id });
+    }
+  },
   setEditingElementId: (id) => set({ editingElementId: id }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),

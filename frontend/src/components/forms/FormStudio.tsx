@@ -88,12 +88,12 @@ export const FormStudio: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-slate-100 overflow-y-auto p-8 select-none">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="flex-1 bg-slate-100 overflow-y-auto p-3 sm:p-6 md:p-8 select-none">
+      <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
         {/* Top Control Bar */}
-        <div className="flex items-center justify-between bg-white px-6 py-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 sm:px-6 py-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold">
+            <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold flex-shrink-0">
               <Globe className="h-5 w-5" />
             </div>
             <div>
@@ -101,7 +101,7 @@ export const FormStudio: React.FC = () => {
               <p className="text-xs text-slate-500">Public respondent portal & certificate variable bindings</p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center flex-wrap gap-2 sm:space-x-3">
             <button
               onClick={() => {
                 setSubmissionResult(null);
@@ -131,7 +131,7 @@ export const FormStudio: React.FC = () => {
         </div>
 
         {/* Form Title & Configuration Header Card */}
-        <div className="bg-white rounded-xl border-t-8 border-brand-500 border-x border-b border-slate-200 p-6 shadow-sm space-y-4">
+        <div className="bg-white rounded-xl border-t-8 border-brand-500 border-x border-b border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
           <input
             type="text"
             value={activeForm.title}

@@ -3,7 +3,8 @@ import {
   ZoomIn, ZoomOut, Maximize2, RotateCcw, Lock, Eye, 
   Trash2, Copy, Move, CheckSquare, Grid, Compass, 
   AlignLeft, AlignCenter, AlignRight, Layers, Sparkles,
-  Download, Edit3, X, RefreshCw, Sliders, Upload
+  Download, Edit3, X, RefreshCw, Sliders, Upload,
+  PanelLeft, PanelRight, ChevronDown
 } from 'lucide-react';
 import { CanvasElement } from '../../types';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -33,9 +34,11 @@ export const CanvasWorkspace: React.FC = () => {
     zoom, setZoom, selectedElementId, setSelectedElementId,
     editingElementId, setEditingElementId, showGrid, toggleGrid,
     showRulers, toggleRulers, showSafeMargin, toggleSafeMargin,
-    updateElementProps, deleteElement, duplicateElement
+    updateElementProps, deleteElement, duplicateElement,
+    isLeftPanelOpen, toggleLeftPanel, isPropertiesPanelOpen, togglePropertiesPanel
   } = useCanvasStore();
 
+  const [isAutoFit, setIsAutoFit] = useState(true);
   const [showLiveInputDrawer, setShowLiveInputDrawer] = useState(false);
   const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -171,13 +174,44 @@ export const CanvasWorkspace: React.FC = () => {
     };
   }, [dragState, baseWidthPx, baseHeightPx, zoom]);
 
-  const fitToScreen = () => {
-    if (!containerRef.current) return;
-    const availW = containerRef.current.clientWidth - 100;
-    const availH = containerRef.current.clientHeight - 100;
-    const scale = Math.min(availW / baseWidthPx, availH / baseHeightPx, 1.0);
-    setZoom(Number(scale.toFixed(2)));
+  // Calculate optimal zoom scale to fit entire certificate in viewport
+  const calculateFitScale = () => {
+    if (!containerRef.current) return 0.65;
+    const rect = containerRef.current.getBoundingClientRect();
+    const paddingX = typeof window !== 'undefined' && window.innerWidth < 640 ? 24 : 48;
+    const paddingY = typeof window !== 'undefined' && window.innerWidth < 640 ? 24 : 48;
+    const availW = Math.max(120, rect.width - paddingX);
+    const availH = Math.max(120, rect.height - paddingY);
+    const scale = Math.min(availW / baseWidthPx, availH / baseHeightPx);
+    return Number(Math.max(0.15, Math.min(2.0, scale)).toFixed(2));
   };
+
+  const fitToScreen = () => {
+    const scale = calculateFitScale();
+    setZoom(scale);
+    setIsAutoFit(true);
+  };
+
+  // Auto-fit on initial mount, template changes, or dimension changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fitToScreen();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [activeTemplate?.id, activeTemplate?.width_pt, activeTemplate?.height_pt]);
+
+  // Keep fitted dynamically when container dimensions change (e.g. sidebars toggled, window resized)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (isAutoFit) {
+        const scale = calculateFitScale();
+        setZoom(scale);
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, [isAutoFit, baseWidthPx, baseHeightPx]);
 
   // Quick 1-click center alignment action
   const centerSelectedElement = () => {
@@ -273,38 +307,64 @@ export const CanvasWorkspace: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-200/60 overflow-hidden relative select-none">
       {/* Top Floating Canvas Toolbar */}
-      <div className="h-11 bg-white border-b border-slate-200 px-4 flex items-center justify-between z-20 shadow-xs">
-        {/* Zoom Controls */}
-        <div className="flex items-center space-x-1.5 text-xs">
+      <div className="min-h-11 py-1 bg-white border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between z-20 shadow-xs overflow-x-auto scrollbar-none gap-2 flex-shrink-0">
+        {/* Left Side: Toggle Left Panel & Zoom Controls */}
+        <div className="flex items-center space-x-1.5 text-xs flex-shrink-0">
           <button
-            onClick={() => setZoom(Math.max(0.25, zoom - 0.1))}
+            onClick={toggleLeftPanel}
+            className={`p-1.5 rounded transition-colors mr-1 flex items-center space-x-1 ${
+              isLeftPanelOpen ? 'bg-brand-50 text-brand-600 font-semibold' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+            title={isLeftPanelOpen ? 'Collapse Elements Panel' : 'Expand Elements Panel'}
+          >
+            <PanelLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-[11px]">Elements</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-slate-200" />
+
+          <button
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoom(Math.max(0.2, Number((zoom - 0.1).toFixed(2))));
+            }}
             className="p-1.5 rounded hover:bg-slate-100 text-slate-600"
             title="Zoom Out"
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </button>
-          <span className="font-semibold text-slate-700 min-w-[42px] text-center font-mono text-[11px]">
+          <span className="font-semibold text-slate-700 min-w-[38px] text-center font-mono text-[11px]">
             {Math.round(zoom * 100)}%
           </span>
           <button
-            onClick={() => setZoom(Math.min(3.0, zoom + 0.1))}
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoom(Math.min(3.0, Number((zoom + 0.1).toFixed(2))));
+            }}
             className="p-1.5 rounded hover:bg-slate-100 text-slate-600"
             title="Zoom In"
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </button>
-          <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+          <div className="h-4 w-[1px] bg-slate-200 mx-0.5" />
           <button
             onClick={fitToScreen}
-            className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 flex items-center space-x-1 font-medium text-[11px]"
-            title="Fit to screen"
+            className={`px-2 py-1 rounded flex items-center space-x-1 font-medium text-[11px] transition-colors ${
+              isAutoFit
+                ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                : 'hover:bg-slate-100 text-slate-600'
+            }`}
+            title="Auto-Fit Certificate to Screen (Prevents overflow on normal screens)"
           >
             <Maximize2 className="h-3 w-3" />
-            <span>Fit Canvas</span>
+            <span>Fit Screen</span>
           </button>
           <button
-            onClick={() => setZoom(1.0)}
-            className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 font-medium text-[11px]"
+            onClick={() => {
+              setIsAutoFit(false);
+              setZoom(1.0);
+            }}
+            className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 font-medium text-[11px] hidden sm:inline"
             title="100% Zoom"
           >
             100%
@@ -312,7 +372,7 @@ export const CanvasWorkspace: React.FC = () => {
         </div>
 
         {/* Quick Alignment & Template Preset Tools */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-shrink-0">
           {selectedEl && (
             <button
               onClick={centerSelectedElement}
@@ -320,23 +380,23 @@ export const CanvasWorkspace: React.FC = () => {
               title="Align Selected Element Horizontally Center"
             >
               <AlignCenter className="h-3 w-3" />
-              <span>Center in Certificate</span>
+              <span className="hidden sm:inline">Center</span>
             </button>
           )}
 
-          <div className="flex items-center space-x-1 bg-slate-100 p-0.5 rounded border border-slate-200 text-[11px]">
+          <div className="hidden lg:flex items-center space-x-1 bg-slate-100 p-0.5 rounded border border-slate-200 text-[11px]">
             <span className="text-slate-400 px-1 font-medium text-[10px]">PRESET:</span>
             <button
               onClick={() => handleLoadPreset('academic')}
               className="px-2 py-0.5 rounded hover:bg-white text-slate-700 font-medium transition-colors"
             >
-              Classic Academic
+              Academic
             </button>
             <button
               onClick={() => handleLoadPreset('executive')}
               className="px-2 py-0.5 rounded hover:bg-white text-slate-700 font-medium transition-colors"
             >
-              Modern Executive
+              Executive
             </button>
           </div>
 
@@ -346,13 +406,13 @@ export const CanvasWorkspace: React.FC = () => {
             title="Edit template name, upload custom certificate design, or adjust paper format"
           >
             <Sliders className="h-3 w-3 text-slate-500" />
-            <span>Edit Template</span>
+            <span>Template Settings</span>
           </button>
         </div>
 
         {/* View toggles & Quick Export Actions */}
-        <div className="flex items-center space-x-2 text-xs">
-          <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1.5 text-xs flex-shrink-0">
+          <div className="hidden sm:flex items-center space-x-1">
             <button
               onClick={toggleGrid}
               className={`p-1.5 rounded transition-colors ${showGrid ? 'bg-brand-50 text-brand-600 font-semibold' : 'hover:bg-slate-100 text-slate-500'}`}
@@ -376,12 +436,12 @@ export const CanvasWorkspace: React.FC = () => {
             </button>
           </div>
 
-          <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+          <div className="h-4 w-[1px] bg-slate-200 hidden sm:block mx-0.5" />
 
           {/* Live Input Fill Drawer Toggle */}
           <button
             onClick={() => setShowLiveInputDrawer(!showLiveInputDrawer)}
-            className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center space-x-1.5 transition-colors ${
+            className={`px-2 py-1 sm:px-2.5 rounded text-[11px] font-semibold flex items-center space-x-1 transition-colors ${
               showLiveInputDrawer
                 ? 'bg-brand-500 text-white shadow-2xs'
                 : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
@@ -389,14 +449,14 @@ export const CanvasWorkspace: React.FC = () => {
             title="Open Live Input Fill Drawer"
           >
             <Edit3 className="h-3 w-3" />
-            <span>Fill Certificate Data</span>
+            <span className="hidden md:inline">Fill Data</span>
           </button>
 
           {/* Quick PDF & PNG Download Buttons */}
           <button
             onClick={handleDownloadActivePdf}
             disabled={isExporting}
-            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+            className="px-2 py-1 sm:px-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
             title="Download current recipient certificate as Vector PDF"
           >
             {isExporting ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
@@ -406,11 +466,25 @@ export const CanvasWorkspace: React.FC = () => {
           <button
             onClick={handleDownloadActivePng}
             disabled={isExporting}
-            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+            className="px-2 py-1 sm:px-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
             title="Download current recipient certificate as High-Res PNG"
           >
             <Download className="h-3 w-3 text-slate-500" />
-            <span>PNG</span>
+            <span className="hidden sm:inline">PNG</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-slate-200 mx-0.5" />
+
+          {/* Right Side: Toggle Properties Panel */}
+          <button
+            onClick={togglePropertiesPanel}
+            className={`p-1.5 rounded transition-colors flex items-center space-x-1 ${
+              isPropertiesPanelOpen ? 'bg-brand-50 text-brand-600 font-semibold' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+            title={isPropertiesPanelOpen ? 'Collapse Properties Panel' : 'Expand Properties Panel'}
+          >
+            <PanelRight className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-[11px]">Props</span>
           </button>
         </div>
       </div>
@@ -422,7 +496,7 @@ export const CanvasWorkspace: React.FC = () => {
           setSelectedElementId(null);
           setEditingElementId(null);
         }}
-        className={`flex-1 overflow-auto flex p-10 ${showGrid ? 'canvas-grid-pattern' : ''}`}
+        className={`flex-1 overflow-auto flex p-3 sm:p-6 md:p-8 ${showGrid ? 'canvas-grid-pattern' : ''}`}
       >
         <div className="m-auto relative flex items-center justify-center">
           <div

@@ -13,38 +13,38 @@ export const Dashboard: React.FC = () => {
   const validCount = recipients.filter((r) => r.status === 'valid').length;
 
   return (
-    <div className="flex-1 bg-slate-100 overflow-y-auto p-8 select-none">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="flex-1 bg-slate-100 overflow-y-auto p-3 sm:p-6 md:p-8 select-none">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         {/* Welcome Hero Banner */}
-        <div className="bg-gradient-to-r from-navy-900 via-brand-700 to-brand-500 rounded-2xl p-8 text-white shadow-md relative overflow-hidden">
+        <div className="bg-gradient-to-r from-navy-900 via-brand-700 to-brand-500 rounded-2xl p-5 sm:p-8 text-white shadow-md relative overflow-hidden">
           <div className="relative z-10 max-w-2xl space-y-3">
             <span className="text-[11px] font-mono uppercase bg-white/20 px-2.5 py-1 rounded-full tracking-wider font-semibold">
               Platform Overview
             </span>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
               {currentProject?.title || 'CertiForm Studio'}
             </h1>
             <p className="text-xs text-brand-100 leading-relaxed">
               Design once. Collect data once. Generate, issue, and verify certificates at any scale. Fully synchronized between Canva-like visual design, Google Forms intake, and spreadsheet roster data.
             </p>
-            <div className="pt-2 flex items-center space-x-3">
+            <div className="pt-2 flex flex-wrap gap-2.5 sm:space-x-3">
               <button
                 onClick={() => setQuickCreateOpen(true)}
-                className="bg-white text-brand-700 hover:bg-brand-50 text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-colors flex items-center space-x-1.5"
+                className="bg-white text-brand-700 hover:bg-brand-50 text-xs font-bold px-3.5 sm:px-4 py-2 rounded-xl shadow-sm transition-colors flex items-center space-x-1.5"
               >
                 <Sparkles className="h-3.5 w-3.5 text-brand-600" />
                 <span>Instant Certificate from Input</span>
               </button>
               <button
                 onClick={() => setActiveWorkspace('studio')}
-                className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-2 rounded-xl border border-white/20 transition-colors flex items-center space-x-1.5"
+                className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 sm:px-4 py-2 rounded-xl border border-white/20 transition-colors flex items-center space-x-1.5"
               >
                 <span>Certificate Studio</span>
                 <ArrowRight className="h-3 w-3" />
               </button>
               <button
                 onClick={() => setActiveWorkspace('issuance')}
-                className="bg-brand-700/60 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-2 rounded-xl border border-white/10 transition-colors"
+                className="bg-brand-700/60 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 sm:px-4 py-2 rounded-xl border border-white/10 transition-colors"
               >
                 Batch Issuance
               </button>
@@ -53,7 +53,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* METRICS OVERVIEW CARDS */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Recipients</span>
@@ -92,9 +92,9 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* WORKSPACE LAUNCHPAD */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
           <h3 className="font-bold text-slate-900 text-sm">Application Workspaces</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div
               onClick={() => setActiveWorkspace('studio')}
               className="p-4 border border-slate-200 rounded-xl hover:border-brand-500 hover:bg-brand-50/20 cursor-pointer transition-all space-y-2 group"

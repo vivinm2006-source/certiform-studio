@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Type, Shapes, QrCode, PenTool, LayoutTemplate, 
   Image as ImageIcon, Layers, Plus, Lock, Unlock, 
-  Eye, EyeOff, Trash2, ArrowUp, ArrowDown, Upload 
+  Eye, EyeOff, Trash2, ArrowUp, ArrowDown, Upload, X 
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useCanvasStore } from '../../store/useCanvasStore';
@@ -13,7 +13,8 @@ export const LeftPanel: React.FC = () => {
   const { activeTemplate, activeForm } = useProjectStore();
   const { 
     addElement, selectedElementId, setSelectedElementId, 
-    updateElementProps, deleteElement, reorderElement 
+    updateElementProps, deleteElement, reorderElement,
+    isLeftPanelOpen, setLeftPanelOpen 
   } = useCanvasStore();
 
   const handleUploadBg = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,8 +40,27 @@ export const LeftPanel: React.FC = () => {
     { label: 'Credential ID', key: 'certificate_id', defaultText: 'CERT-2026-000125' },
   ];
 
+  if (!isLeftPanelOpen) return null;
+
   return (
-    <div className="w-72 bg-white border-r border-slate-200 flex flex-col h-full z-20 select-none">
+    <>
+      {/* Mobile Drawer Backdrop */}
+      <div
+        onClick={() => setLeftPanelOpen(false)}
+        className="fixed inset-0 bg-slate-900/40 z-30 md:hidden backdrop-blur-2xs"
+      />
+      <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] z-40 bg-white shadow-2xl flex flex-col border-r border-slate-200 md:relative md:w-72 md:z-20 md:shadow-none select-none flex-shrink-0 animate-in slide-in-from-left duration-150">
+        {/* Mobile Header with Dismiss */}
+        <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200 bg-slate-50 md:hidden">
+          <span className="text-xs font-bold text-slate-800">Add Elements & Presets</span>
+          <button
+            onClick={() => setLeftPanelOpen(false)}
+            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200"
+            title="Close Panel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       {/* Icon Navigation Bar */}
       <div className="grid grid-cols-6 border-b border-slate-200 p-1 bg-slate-50 text-slate-500">
         <button
@@ -455,5 +475,6 @@ export const LeftPanel: React.FC = () => {
         )}
       </div>
     </div>
-  );
+  </>
+);
 };
