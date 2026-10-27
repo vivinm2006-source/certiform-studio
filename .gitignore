@@ -47,3 +47,7 @@ storage/
 Thumbs.db
 .vscode/
 .idea/
+
+.vercel
+pyproject.toml
+uv.lock

@@ -24,7 +24,11 @@ app.add_middleware(
 )
 
 # Static file serving for uploads and generated documents
-app.mount("/storage", StaticFiles(directory=str(settings.STORAGE_DIR)), name="storage")
+try:
+    settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/storage", StaticFiles(directory=str(settings.STORAGE_DIR)), name="storage")
+except Exception:
+    pass
 
 # Include Routers under API prefix
 api_prefix = settings.API_V1_STR
@@ -36,7 +40,26 @@ app.include_router(signatures.router, prefix=api_prefix)
 app.include_router(issuance.router, prefix=api_prefix)
 app.include_router(verification.router, prefix=api_prefix)
 
+# Also support /v1 for direct serverless rewrites
+app.include_router(projects.router, prefix="/v1")
+app.include_router(templates.router, prefix="/v1")
+app.include_router(forms.router, prefix="/v1")
+app.include_router(recipients.router, prefix="/v1")
+app.include_router(signatures.router, prefix="/v1")
+app.include_router(issuance.router, prefix="/v1")
+app.include_router(verification.router, prefix="/v1")
+
+@app.get("/")
+@app.get("/api")
+def api_root():
+    return {
+        "status": "online",
+        "service": settings.PROJECT_NAME,
+        "version": settings.VERSION
+    }
+
 @app.get("/api/health")
+@app.get("/health")
 def health_check():
     return {
         "status": "healthy",

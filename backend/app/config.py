@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from pydantic import BaseModel
 
-IS_VERCEL = bool(os.getenv("VERCEL"))
+IS_VERCEL = bool(os.getenv("VERCEL")) or bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME")) or bool(os.getenv("NOW_REGION"))
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 if IS_VERCEL:
@@ -13,9 +13,12 @@ else:
 UPLOADS_DIR = STORAGE_DIR / "uploads"
 GENERATED_DIR = STORAGE_DIR / "generated"
 
-# Ensure storage directories exist
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure storage directories exist safely
+try:
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 DEFAULT_DB = "sqlite:////tmp/certiform.db" if IS_VERCEL else f"sqlite:///{BASE_DIR}/certiform.db"
 
