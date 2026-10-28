@@ -303,7 +303,7 @@ export const CanvasWorkspace: React.FC = () => {
   };
 
   // Quick switch to preset
-  const handleLoadPreset = async (preset: 'academic' | 'executive') => {
+  const handleLoadPreset = async (preset: string) => {
     if (!activeTemplate) return;
     try {
       const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {

@@ -15,7 +15,7 @@ interface TemplateGalleryModalProps {
 
 interface PresetOption {
   id: string;
-  category: 'academic' | 'executive' | 'tech' | 'science' | 'healthcare' | 'creative' | 'blank';
+  category: 'vanexa' | 'academic' | 'executive' | 'tech' | 'science' | 'healthcare' | 'creative' | 'blank';
   title: string;
   description: string;
   previewBg: string;
@@ -27,7 +27,7 @@ interface PresetOption {
 
 export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOpen, onClose }) => {
   const { currentProject, createTemplate, selectTemplate, templates } = useProjectStore();
-  const [selectedPreset, setSelectedPreset] = useState<string>('academic');
+  const [selectedPreset, setSelectedPreset] = useState<string>('vanexa_participation');
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [templateName, setTemplateName] = useState('');
   const [pageFormat, setPageFormat] = useState('A4_LANDSCAPE');
@@ -38,6 +38,50 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
   if (!isOpen) return null;
 
   const presets: PresetOption[] = [
+    {
+      id: 'vanexa_participation',
+      category: 'vanexa',
+      title: 'Vanexa - Participation (Editable)',
+      description: 'Official Vanexa Tech Hub & Nehru Institute of Technology Startup & Entrepreneurship certificate with 100% editable vector text, logo, and script student name.',
+      previewBg: '#FBF9F5',
+      accentColor: '#05254C',
+      borderStyle: 'border-blue-900',
+      badgeText: 'Vanexa Tech Hub',
+      icon: Sparkles,
+    },
+    {
+      id: 'vanexa_excellence',
+      category: 'vanexa',
+      title: 'Vanexa - Excellence & Merit',
+      description: 'Royal navy and metallic bronze gold layout for top performers in AI & Full Stack Systems, with dual director & convener signatures.',
+      previewBg: '#FFFDF7',
+      accentColor: '#D97706',
+      borderStyle: 'border-amber-600',
+      badgeText: 'Vanexa Distinction',
+      icon: Crown,
+    },
+    {
+      id: 'vanexa_internship',
+      category: 'vanexa',
+      title: 'Vanexa - Internship Completion',
+      description: 'Official industrial training and internship completion credential for Cloud Architecture & DevOps at Vanexa Tech Hub Pvt Ltd.',
+      previewBg: '#F0FDF4',
+      accentColor: '#059669',
+      borderStyle: 'border-emerald-600',
+      badgeText: 'Vanexa Internship',
+      icon: Briefcase,
+    },
+    {
+      id: 'vanexa_artwork',
+      category: 'vanexa',
+      title: 'Vanexa - Official Artwork Template',
+      description: 'Authentic graphic design certificate background with floating dynamic Student Name in cursive script, event date, and QR verification stamp.',
+      previewBg: '#FBF9F5',
+      accentColor: '#C5A059',
+      borderStyle: 'border-amber-500',
+      badgeText: 'Vanexa Graphic Artwork',
+      icon: FileImage,
+    },
     {
       id: 'academic',
       category: 'academic',
@@ -337,6 +381,7 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
             <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs">
               {[
                 { id: 'all', label: `All (${presets.length})` },
+                { id: 'vanexa', label: 'Vanexa Tech Hub' },
                 { id: 'academic', label: 'Academic & Law' },
                 { id: 'executive', label: 'Corporate & Executive' },
                 { id: 'tech', label: 'AI & Hackathons' },

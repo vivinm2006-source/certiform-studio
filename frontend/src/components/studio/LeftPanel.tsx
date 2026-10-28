@@ -554,10 +554,14 @@ export const LeftPanel: React.FC = () => {
                     <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                       Change Preset Style
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-medium">12 Styles</span>
+                    <span className="text-[10px] text-slate-400 font-medium">16 Styles</span>
                   </div>
                   <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                     {[
+                      { key: 'vanexa_participation', title: 'Vanexa - Participation (Editable)', desc: 'Startup & Entrepreneurship with Navy/Gold vector art' },
+                      { key: 'vanexa_excellence', title: 'Vanexa - Excellence & Merit', desc: 'Distinction in Generative AI & Systems' },
+                      { key: 'vanexa_internship', title: 'Vanexa - Internship Completion', desc: 'Cloud Architecture & DevOps Industrial Training' },
+                      { key: 'vanexa_artwork', title: 'Vanexa - Official Artwork Template', desc: 'Graphic certificate with dynamic cursive script name' },
                       { key: 'academic', title: 'Classic Academic Honors', desc: 'Gold borders & Cinzel serif' },
                       { key: 'executive', title: 'Modern Executive Diploma', desc: 'Emerald geometric accents' },
                       { key: 'tech', title: 'Innovation & Tech Summit', desc: 'Indigo styling & verification QR' },

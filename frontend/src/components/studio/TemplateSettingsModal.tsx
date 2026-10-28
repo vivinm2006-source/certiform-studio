@@ -93,7 +93,7 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
     await api.batchSyncElements(activeTemplate.id, updatedElements);
   };
 
-  const handleLoadPreset = async (preset: 'academic' | 'executive') => {
+  const handleLoadPreset = async (preset: string) => {
     if (!activeTemplate) return;
     try {
       const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {

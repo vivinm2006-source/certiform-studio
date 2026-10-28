@@ -33,7 +33,8 @@ backend/storage/generated/*
 backend/storage/uploads/*
 !backend/storage/generated/.gitkeep
 !backend/storage/uploads/.gitkeep
-storage/
+!backend/storage/templates/**
+/storage/
 
 # Environment variables
 .env

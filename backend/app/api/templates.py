@@ -10,8 +10,21 @@ from app.schemas import (
 from app.config import settings
 import uuid
 import shutil
+import base64
+from pathlib import Path
 
 router = APIRouter(tags=["Templates"])
+
+def get_vanexa_artwork_data_url() -> Optional[str]:
+    """Helper to return base64 Data URL for the official Vanexa certificate artwork."""
+    try:
+        path = settings.STORAGE_DIR / "templates" / "vanexa_participation_artwork.jpg"
+        if path.exists():
+            encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+            return f"data:image/jpeg;base64,{encoded}"
+    except Exception as e:
+        print(f"Failed to read Vanexa artwork asset: {e}")
+    return None
 
 def get_preset_template_data(preset_key: str, template_id: str) -> tuple[str, str, List[CanvasElement]]:
     """Returns (default_name, default_bg, elements_list) for a given preset."""
@@ -251,6 +264,92 @@ def get_preset_template_data(preset_key: str, template_id: str) -> tuple[str, st
             CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#D4D4D8", border_width=1.0, layer_order=13),
             CanvasElement(template_id=template_id, element_type="static_text", content="Elena Rostova\nJury President", font_family="Montserrat", font_size=9, color="#71717A", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=14)
         ]
+    elif preset_key == "vanexa_participation":
+        name = "Vanexa Tech Hub - Certificate of Participation"
+        bg_color = "#FBF9F5"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.015, y=0.02, width=0.970, height=0.96, border_color="#05254C", border_width=2.5, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.025, y=0.034, width=0.950, height=0.932, border_color="#C5A059", border_width=1.0, fill_color=None, is_locked=True, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="VANEXA", font_family="Montserrat", font_size=22, font_weight="bold", color="#05254C", letter_spacing=3.5, uppercase=True, text_align="center", x=0.3, y=0.05, width=0.4, height=0.045, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="— EMPOWERING GROWTH, ELEVATING FUTURES —", font_family="Montserrat", font_size=7, font_weight="bold", color="#C5A059", letter_spacing=2.0, uppercase=True, text_align="center", x=0.2, y=0.095, width=0.6, height=0.025, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="CERTIFICATE", font_family="Cinzel", font_size=34, font_weight="bold", color="#05254C", letter_spacing=4.0, uppercase=True, text_align="center", x=0.1, y=0.125, width=0.8, height=0.07, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="static_text", content="OF PARTICIPATION", font_family="Montserrat", font_size=13, font_weight="bold", color="#C5A059", letter_spacing=4.0, uppercase=True, text_align="center", x=0.2, y=0.195, width=0.6, height=0.035, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.38, y=0.235, width=0.24, height=0.004, border_color="#C5A059", border_width=1.0, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="static_text", content="This certificate is proudly presented to", font_family="Montserrat", font_size=10.5, font_weight="normal", color="#2D3748", text_align="center", x=0.2, y=0.250, width=0.6, height=0.03, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Student Name", binding_key="recipient_name", font_family="Great Vibes", font_size=42, font_weight="bold", color="#05254C", text_align="center", auto_fit_text=True, x=0.08, y=0.285, width=0.84, height=0.11, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.28, y=0.395, width=0.44, height=0.004, border_color="#C5A059", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="of the Department of Artificial Intelligence and Machine Learning (AI & ML)", binding_key="department", font_family="Montserrat", font_size=10.5, font_weight="bold", color="#1A202C", text_align="center", x=0.1, y=0.410, width=0.8, height=0.032, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="static_text", content="for their active participation in the session on", font_family="Montserrat", font_size=10, font_weight="normal", color="#4A5568", text_align="center", x=0.15, y=0.445, width=0.7, height=0.028, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="“STARTUP & ENTREPRENEURSHIP”", binding_key="event_name", font_family="Cinzel", font_size=20, font_weight="bold", color="#A16207", text_align="center", auto_fit_text=True, x=0.08, y=0.480, width=0.84, height=0.055, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="conducted on {{event_date}} at Nehru Institute of Technology.", font_family="Montserrat", font_size=10, font_weight="bold", color="#1A202C", text_align="center", x=0.1, y=0.540, width=0.8, height=0.030, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="static_text", content="This session aimed to inspire students to develop an entrepreneurial mindset, explore innovative startup ideas, identify real-world problems, and understand the fundamentals of transforming ideas into successful ventures.\n\nWe appreciate their enthusiasm and participation and wish them success in their future entrepreneurial journey.", font_family="Montserrat", font_size=8.5, font_weight="normal", color="#4A5568", text_align="center", line_height=1.45, x=0.12, y=0.580, width=0.76, height=0.12, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.14, y=0.760, width=0.18, height=0.004, border_color="#CBD5E1", border_width=1.0, layer_order=15),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="26/10/2026\nDate", binding_key="event_date", font_family="Montserrat", font_size=8.5, color="#4A5568", text_align="center", x=0.14, y=0.770, width=0.18, height=0.045, layer_order=16),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.46, y=0.735, width=0.08, height=0.10, layer_order=17),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="ID: {{certificate_id}}", binding_key="certificate_id", font_family="Montserrat", font_size=6.5, color="#718096", text_align="center", x=0.40, y=0.840, width=0.20, height=0.03, layer_order=18),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.68, y=0.760, width=0.22, height=0.004, border_color="#CBD5E1", border_width=1.0, layer_order=19),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Authorized Signatory\nVanexa Tech Hub Pvt Ltd", font_family="Montserrat", font_size=9, font_weight="bold", color="#1A202C", text_align="center", x=0.68, y=0.770, width=0.22, height=0.045, layer_order=20)
+        ]
+    elif preset_key == "vanexa_excellence":
+        name = "Vanexa Tech Hub - Certificate of Excellence"
+        bg_color = "#FFFDF7"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.015, y=0.02, width=0.970, height=0.96, border_color="#0B2545", border_width=2.5, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.025, y=0.034, width=0.950, height=0.932, border_color="#D97706", border_width=1.0, fill_color=None, is_locked=True, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="VANEXA", font_family="Montserrat", font_size=22, font_weight="bold", color="#0B2545", letter_spacing=3.5, uppercase=True, text_align="center", x=0.3, y=0.05, width=0.4, height=0.045, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="— EMPOWERING GROWTH, ELEVATING FUTURES —", font_family="Montserrat", font_size=7, font_weight="bold", color="#D97706", letter_spacing=2.0, uppercase=True, text_align="center", x=0.2, y=0.095, width=0.6, height=0.025, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="CERTIFICATE", font_family="Cinzel", font_size=34, font_weight="bold", color="#0B2545", letter_spacing=4.0, uppercase=True, text_align="center", x=0.1, y=0.125, width=0.8, height=0.07, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="static_text", content="OF EXCELLENCE & MERIT", font_family="Montserrat", font_size=13, font_weight="bold", color="#D97706", letter_spacing=4.0, uppercase=True, text_align="center", x=0.2, y=0.195, width=0.6, height=0.035, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.36, y=0.235, width=0.28, height=0.004, border_color="#D97706", border_width=1.0, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="static_text", content="FOR DEMONSTRATING OUTSTANDING TECHNICAL MASTERY AND DISTINCTION", font_family="Montserrat", font_size=9.5, font_weight="normal", color="#64748B", letter_spacing=2.0, uppercase=True, text_align="center", x=0.15, y=0.250, width=0.7, height=0.03, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Student Name", binding_key="recipient_name", font_family="Great Vibes", font_size=42, font_weight="bold", color="#0B2545", text_align="center", auto_fit_text=True, x=0.08, y=0.285, width=0.84, height=0.11, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.28, y=0.395, width=0.44, height=0.004, border_color="#D97706", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="of the Department of Computer Science and Engineering", binding_key="department", font_family="Montserrat", font_size=10.5, font_weight="bold", color="#1E293B", text_align="center", x=0.1, y=0.410, width=0.8, height=0.032, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="static_text", content="in recognition of stellar technical project performance, innovation, and leadership in", font_family="Montserrat", font_size=10, font_weight="normal", color="#475569", text_align="center", x=0.15, y=0.445, width=0.7, height=0.028, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="“GENERATIVE AI & FULL-STACK SYSTEMS”", binding_key="event_name", font_family="Cinzel", font_size=20, font_weight="bold", color="#B45309", text_align="center", auto_fit_text=True, x=0.08, y=0.480, width=0.84, height=0.055, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="conducted at Nehru Institute of Technology in collaboration with Vanexa Tech Hub.", font_family="Montserrat", font_size=10, font_weight="bold", color="#1E293B", text_align="center", x=0.1, y=0.540, width=0.8, height=0.030, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Their technical execution demonstrated deep architectural understanding, problem-solving dexterity, and the ability to convert complex business challenges into production-ready software solutions.\n\nWe commend their excellence and wish them continued distinction in their engineering career.", font_family="Montserrat", font_size=8.5, font_weight="normal", color="#475569", text_align="center", line_height=1.45, x=0.12, y=0.580, width=0.76, height=0.12, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.12, y=0.760, width=0.22, height=0.004, border_color="#CBD5E1", border_width=1.0, layer_order=15),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Technical Program Director\nVanexa Tech Hub Pvt Ltd", font_family="Montserrat", font_size=9, font_weight="bold", color="#1E293B", text_align="center", x=0.12, y=0.770, width=0.22, height=0.045, layer_order=16),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.46, y=0.735, width=0.08, height=0.10, layer_order=17),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="EXCELLENCE ID: {{certificate_id}}", binding_key="certificate_id", font_family="Montserrat", font_size=6.5, color="#718096", text_align="center", x=0.40, y=0.840, width=0.20, height=0.03, layer_order=18),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.66, y=0.760, width=0.22, height=0.004, border_color="#CBD5E1", border_width=1.0, layer_order=19),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Head of Department / Convener\nNehru Institute of Technology", font_family="Montserrat", font_size=9, font_weight="bold", color="#1E293B", text_align="center", x=0.66, y=0.770, width=0.22, height=0.045, layer_order=20)
+        ]
+    elif preset_key == "vanexa_internship":
+        name = "Vanexa Tech Hub - Internship Completion"
+        bg_color = "#F0FDF4"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.015, y=0.02, width=0.970, height=0.96, border_color="#0F172A", border_width=2.5, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.025, y=0.034, width=0.950, height=0.932, border_color="#059669", border_width=1.0, fill_color=None, is_locked=True, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="VANEXA", font_family="Montserrat", font_size=22, font_weight="bold", color="#0F172A", letter_spacing=3.5, uppercase=True, text_align="center", x=0.3, y=0.05, width=0.4, height=0.045, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="— EMPOWERING GROWTH, ELEVATING FUTURES —", font_family="Montserrat", font_size=7, font_weight="bold", color="#059669", letter_spacing=2.0, uppercase=True, text_align="center", x=0.2, y=0.095, width=0.6, height=0.025, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="CERTIFICATE", font_family="Cinzel", font_size=34, font_weight="bold", color="#0F172A", letter_spacing=4.0, uppercase=True, text_align="center", x=0.1, y=0.125, width=0.8, height=0.07, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="static_text", content="OF INDUSTRIAL INTERNSHIP", font_family="Montserrat", font_size=13, font_weight="bold", color="#059669", letter_spacing=4.0, uppercase=True, text_align="center", x=0.2, y=0.195, width=0.6, height=0.035, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.36, y=0.235, width=0.28, height=0.004, border_color="#059669", border_width=1.0, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="static_text", content="THIS IS PROUDLY CONFERRED UPON", font_family="Montserrat", font_size=9.5, font_weight="normal", color="#64748B", letter_spacing=2.5, uppercase=True, text_align="center", x=0.2, y=0.250, width=0.6, height=0.03, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Student Name", binding_key="recipient_name", font_family="Great Vibes", font_size=42, font_weight="bold", color="#0F172A", text_align="center", auto_fit_text=True, x=0.08, y=0.285, width=0.84, height=0.11, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.28, y=0.395, width=0.44, height=0.004, border_color="#059669", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="static_text", content="for successfully fulfilling all requirements of the 3-Month Industry Internship in", font_family="Montserrat", font_size=10, font_weight="normal", color="#475569", text_align="center", x=0.15, y=0.420, width=0.7, height=0.028, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="“ENTERPRISE CLOUD ARCHITECTURE & DEVOPS”", binding_key="event_name", font_family="Cinzel", font_size=19, font_weight="bold", color="#047857", text_align="center", auto_fit_text=True, x=0.08, y=0.455, width=0.84, height=0.055, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="conducted at Vanexa Tech Hub Pvt Ltd during the academic year 2026.", font_family="Montserrat", font_size=10, font_weight="bold", color="#1E293B", text_align="center", x=0.1, y=0.515, width=0.8, height=0.030, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="static_text", content="During the internship tenure, the candidate demonstrated exemplary diligence, creative engineering, and professional accountability across software development lifecycles.\n\nWe appreciate their valuable contributions and wish them immense success in their technology career.", font_family="Montserrat", font_size=8.5, font_weight="normal", color="#475569", text_align="center", line_height=1.45, x=0.12, y=0.555, width=0.76, height=0.12, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.14, y=0.760, width=0.22, height=0.004, border_color="#CBD5E1", border_width=1.0, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Chief Technology Officer\nVanexa Tech Hub Pvt Ltd", font_family="Montserrat", font_size=9, font_weight="bold", color="#1E293B", text_align="center", x=0.14, y=0.770, width=0.22, height=0.045, layer_order=15),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.46, y=0.735, width=0.08, height=0.10, layer_order=16),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="INTERNSHIP ID: {{certificate_id}}", binding_key="certificate_id", font_family="Montserrat", font_size=6.5, color="#718096", text_align="center", x=0.40, y=0.840, width=0.20, height=0.03, layer_order=17),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.760, width=0.22, height=0.004, border_color="#CBD5E1", border_width=1.0, layer_order=18),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Head of Talent & Operations\nVanexa Tech Hub Pvt Ltd", font_family="Montserrat", font_size=9, font_weight="bold", color="#1E293B", text_align="center", x=0.64, y=0.770, width=0.22, height=0.045, layer_order=19)
+        ]
+    elif preset_key == "vanexa_artwork":
+        name = "Vanexa Tech Hub - Artwork Design"
+        bg_color = None
+        elements = [
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Student Name", binding_key="recipient_name", font_family="Great Vibes", font_size=42, font_weight="bold", color="#05254C", text_align="center", auto_fit_text=True, x=0.08, y=0.285, width=0.84, height=0.11, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="26/10/2026", binding_key="event_date", font_family="Montserrat", font_size=8.5, color="#4A5568", text_align="center", x=0.14, y=0.745, width=0.18, height=0.035, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.46, y=0.735, width=0.08, height=0.10, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="ID: {{certificate_id}}", binding_key="certificate_id", font_family="Montserrat", font_size=6.5, color="#718096", text_align="center", x=0.40, y=0.840, width=0.20, height=0.03, layer_order=3)
+        ]
     elif preset_key in ("uploaded", "custom", "custom_artwork"):
         name = "Custom Uploaded Artwork Template"
         bg_color = None
@@ -312,6 +411,11 @@ def create_template(project_id: str, data: CertificateTemplateCreate, db: Sessio
         preset_key = "uploaded"
         if not tpl_bg or tpl_bg == "#FFFFFF":
             tpl_bg = None
+
+    # If Vanexa artwork preset requested, automatically bind official artwork background
+    if preset_key == "vanexa_artwork" and not data.background_asset_url:
+        data.background_asset_url = get_vanexa_artwork_data_url()
+        tpl_bg = None
     
     tpl = CertificateTemplate(
         project_id=project_id,
@@ -651,8 +755,12 @@ def load_template_preset(template_id: str, payload: Dict[str, str], db: Session 
     
     preset_name, default_bg, new_elements = get_preset_template_data(preset_key, tpl.id)
     tpl.name = preset_name
-    tpl.background_color = default_bg
-    tpl.background_asset_url = None
+    if preset_key == "vanexa_artwork":
+        tpl.background_asset_url = get_vanexa_artwork_data_url()
+        tpl.background_color = None
+    else:
+        tpl.background_color = default_bg
+        tpl.background_asset_url = None
     
     for el in new_elements:
         db.add(el)
