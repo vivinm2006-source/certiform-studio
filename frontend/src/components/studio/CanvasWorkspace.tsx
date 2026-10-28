@@ -27,8 +27,13 @@ function resolveText(templateStr: string | undefined, data: Record<string, any>,
     let val = merged[cleanKey] ?? merged[cleanKey.toLowerCase()] ?? merged[cleanKey.toLowerCase().replace(/ /g, '_')];
     
     // Name aliases
-    if (val === undefined && cleanKey.toLowerCase().includes('name')) {
-      for (const cand of ['recipient_name', 'full_name', 'name', 'student_name', 'participant_name', 'Student Name', 'Full Name', 'Name']) {
+    const ckLower = cleanKey.toLowerCase();
+    if (val === undefined && (ckLower.includes('name') || ckLower.includes('student') || ckLower === 's' || ckLower.startsWith('s_') || ckLower.startsWith('s.'))) {
+      for (const cand of [
+        'recipient_name', 'student_name', 's_name', 'sname', 's.name', 'student',
+        'full_name', 'name', 'participant_name', 'candidate_name',
+        'Student Name', 'Full Name', 'Name', 'Student', 'S.Name', 'S Name', 'SName'
+      ]) {
         if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
           val = merged[cand];
           break;
@@ -109,23 +114,35 @@ function resolveDynamicValue(
   }
 
   // 4. Smart Name fallback: ONLY if binding key looks like a name field, or content is a known name placeholder
-  const isNameBinding = (bindingKey && ['recipient_name', 'name', 'full_name', 'student_name', 'participant_name', 'candidate_name'].includes(bindingKey.toLowerCase())) ||
-    (!bindingKey && content && ['ananya kumar', 'recipient name', 'student name', 'candidate name', 'full name', 'name', 'john doe'].includes(content.toLowerCase().trim()));
+  const isNameBinding = (bindingKey && ['recipient_name', 'name', 'full_name', 'student_name', 'participant_name', 'candidate_name', 's_name', 'sname', 's.name', 's_word', 'student'].includes(bindingKey.toLowerCase())) ||
+    (!bindingKey && content && ['ananya kumar', 'recipient name', 'student name', 'candidate name', 'full name', 'name', 'john doe', 's name', 's.name', 's word'].includes(content.toLowerCase().trim()));
 
   if (isNameBinding) {
     const candidateKeys = [
-      'recipient_name', 'full_name', 'name', 'student_name', 
-      'participant_name', 'candidate_name', 'attendee_name',
-      'Full Name', 'Name', 'Student Name', 'Candidate Name', 'Participant Name'
+      'recipient_name', 'student_name', 's_name', 'sname', 's.name', 'student',
+      'full_name', 'name', 'participant_name', 'candidate_name', 'attendee_name',
+      'Student Name', 'Full Name', 'Name', 'Student', 'S.Name', 'S Name', 'SName',
+      'name_of_the_student', 'name_of_student', 'students_name'
     ];
     for (const key of candidateKeys) {
       if (data[key] !== undefined && String(data[key]).trim() !== '') {
         return String(data[key]);
       }
     }
-    // Fuzzy match any field in data where key contains 'name'
+    // Fuzzy match person terms first
     for (const [k, v] of Object.entries(data)) {
-      if (k.toLowerCase().includes('name') && v !== undefined && String(v).trim() !== '') {
+      const kl = k.toLowerCase();
+      if (['student', 'candidate', 'participant', 'recipient', 'person', 'member'].some(term => kl.includes(term)) && v !== undefined && String(v).trim() !== '') {
+        return String(v);
+      }
+    }
+    // Fuzzy match any field in data where key contains 'name', but NEVER event/college/dept/topic
+    for (const [k, v] of Object.entries(data)) {
+      const kl = k.toLowerCase();
+      if (['event', 'college', 'dept', 'department', 'topic', 'session', 'institute', 'school', 'venue'].some(skip => kl.includes(skip))) {
+        continue;
+      }
+      if (kl.includes('name') && v !== undefined && String(v).trim() !== '') {
         return String(v);
       }
     }
@@ -174,7 +191,8 @@ export const CanvasWorkspace: React.FC = () => {
     editingElementId, setEditingElementId, showGrid, toggleGrid,
     showRulers, toggleRulers, showSafeMargin, toggleSafeMargin,
     updateElementProps, deleteElement, duplicateElement,
-    isLeftPanelOpen, toggleLeftPanel, isPropertiesPanelOpen, togglePropertiesPanel
+    isLeftPanelOpen, toggleLeftPanel, isPropertiesPanelOpen, togglePropertiesPanel,
+    saveElementsToBackend
   } = useCanvasStore();
 
   const [isAutoFit, setIsAutoFit] = useState(true);
@@ -185,7 +203,77 @@ export const CanvasWorkspace: React.FC = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRec = recipients[activeRecipientIndex];
-  const recData = activeRec?.data || {};
+  const recData: Record<string, any> = activeRec?.data || {
+    recipient_name: 'Student Name',
+    name: 'Student Name',
+    full_name: 'Student Name',
+    student_name: 'Student Name',
+    department: 'Department of Artificial Intelligence and Machine Learning (AI & ML)',
+    event_name: 'STARTUP & ENTREPRENEURSHIP',
+    session_topic: 'STARTUP & ENTREPRENEURSHIP',
+    event_date: '26/10/2026',
+    institution: 'Nehru Institute of Technology',
+    venue: 'Nehru Institute of Technology',
+    email: 'student@example.com'
+  };
+
+  const studentElement = activeTemplate?.elements.find(e => 
+    e.binding_key === 'recipient_name' || 
+    e.binding_key === 'student_name' || 
+    (e.content && e.content.toLowerCase().includes('student name'))
+  );
+  const currentStudentFont = studentElement?.font_family || 'Great Vibes';
+
+  const handleStudentFontChange = (font: string) => {
+    if (studentElement) {
+      updateElementProps(studentElement.id, { font_family: font });
+    }
+  };
+
+  const handleUpdateCertificateWord = (field: 'name' | 'topic' | 'dept' | 'date' | 'venue' | 'title' | 'signatory', value: string) => {
+    if (field === 'name') {
+      updateActiveRecipientData('recipient_name', value);
+      if (studentElement) updateElementProps(studentElement.id, { content: value });
+    } else if (field === 'topic') {
+      updateActiveRecipientData('event_name', value);
+      const el = activeTemplate?.elements.find(e => 
+        e.binding_key === 'event_name' || 
+        (e.content && (e.content.toUpperCase().includes('STARTUP') || e.content.toUpperCase().includes('ENTREPRENEURSHIP') || e.content.toUpperCase().includes('AI')))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'dept') {
+      updateActiveRecipientData('department', value);
+      const el = activeTemplate?.elements.find(e => 
+        e.binding_key === 'department' || 
+        (e.content && e.content.toLowerCase().includes('department'))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'date') {
+      updateActiveRecipientData('event_date', value);
+      const el = activeTemplate?.elements.find(e => 
+        e.binding_key === 'event_date' || 
+        (e.content && (e.content.includes('/202') || e.content.toLowerCase().includes('date')))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'venue') {
+      updateActiveRecipientData('institution', value);
+      const el = activeTemplate?.elements.find(e => 
+        e.binding_key === 'institution' || 
+        (e.content && e.content.toLowerCase().includes('institute'))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'title') {
+      const el = activeTemplate?.elements.find(e => 
+        e.content && (e.content.includes('PARTICIPATION') || e.content.includes('EXCELLENCE') || e.content.includes('CERTIFICATE'))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'signatory') {
+      const el = activeTemplate?.elements.find(e => 
+        e.content && (e.content.includes('Signatory') || e.content.includes('Director') || e.content.includes('President'))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    }
+  };
 
   // Standard base canvas dimensions in CSS pixels (1 pt ≈ 1.25 px for clean high-DPI display)
   const baseWidthPx = (activeTemplate?.width_pt || 841.89) * 1.2;
@@ -808,18 +896,18 @@ export const CanvasWorkspace: React.FC = () => {
 
           <div className="h-4 w-[1px] bg-slate-200 hidden sm:block mx-0.5" />
 
-          {/* Live Input Fill Drawer Toggle */}
+          {/* Edit Certificate Words Drawer Toggle */}
           <button
             onClick={() => setShowLiveInputDrawer(!showLiveInputDrawer)}
-            className={`px-2 py-1 sm:px-2.5 rounded text-[11px] font-semibold flex items-center space-x-1 transition-colors ${
+            className={`px-2.5 py-1 sm:px-3 rounded text-[11px] font-bold flex items-center space-x-1.5 transition-colors ${
               showLiveInputDrawer
-                ? 'bg-brand-500 text-white shadow-2xs'
-                : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 shadow-2xs'
             }`}
-            title="Open Live Input Fill Drawer"
+            title="Open Certificate Words Edit Table to change student name, topic, and certificate words"
           >
-            <Edit3 className="h-3 w-3" />
-            <span className="hidden md:inline">Fill Data</span>
+            <Edit3 className="h-3.5 w-3.5 text-amber-700" />
+            <span>Edit Certificate Words</span>
           </button>
 
           {/* Quick PDF & PNG Download Buttons */}
@@ -1202,15 +1290,18 @@ export const CanvasWorkspace: React.FC = () => {
       </div>
     </div>
 
-      {/* Sliding Live Input Fill Drawer */}
+      {/* Sliding Certificate Words Edit Table Drawer */}
       {showLiveInputDrawer && (
-        <div className="absolute right-4 top-14 w-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 p-5 z-40 animate-in slide-in-from-right-4 duration-200">
+        <div className="absolute right-4 top-14 w-96 max-w-[92vw] bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 p-5 z-40 animate-in slide-in-from-right-4 duration-200">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center space-x-2">
-              <Sparkles className="h-4 w-4 text-brand-600" />
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Live Certificate Inputs
-              </h4>
+              <Sparkles className="h-4 w-4 text-amber-600" />
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Edit Certificate Words
+                </h4>
+                <p className="text-[10px] text-slate-500">Live editor table with 1-click font switching</p>
+              </div>
             </div>
             <button
               onClick={() => setShowLiveInputDrawer(false)}
@@ -1220,57 +1311,97 @@ export const CanvasWorkspace: React.FC = () => {
             </button>
           </div>
 
-          <div className="space-y-3 py-3 text-xs max-h-[70vh] overflow-y-auto">
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">Recipient Full Name</label>
+          <div className="space-y-3.5 py-3 text-xs max-h-[70vh] overflow-y-auto pr-1">
+            {/* Student Name & Font Selector */}
+            <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-amber-900 block">Student / Recipient Name</label>
+                <span className="text-[10px] text-amber-700 font-mono">Font: {currentStudentFont}</span>
+              </div>
               <input
                 type="text"
                 value={recData.recipient_name || recData.full_name || recData.name || ''}
-                onChange={(e) => {
-                  updateActiveRecipientData('recipient_name', e.target.value);
-                  updateActiveRecipientData('name', e.target.value);
-                  updateActiveRecipientData('full_name', e.target.value);
-                }}
-                placeholder="Enter recipient name"
-                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+                onChange={(e) => handleUpdateCertificateWord('name', e.target.value)}
+                placeholder="Enter student name (e.g. Vivin M)"
+                className="w-full border border-amber-300 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-amber-500 font-medium shadow-2xs"
               />
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] font-semibold text-amber-800 block">Student Name Font:</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'Cursive Script', font: 'Great Vibes' },
+                    { label: 'Classic Serif', font: 'Playfair Display' },
+                    { label: 'Clean Sans', font: 'Montserrat' },
+                    { label: 'Academic Serif', font: 'Cinzel' },
+                  ].map((f) => (
+                    <button
+                      key={f.font}
+                      type="button"
+                      onClick={() => handleStudentFontChange(f.font)}
+                      className={`px-2 py-1 rounded text-[10px] font-semibold text-center border transition-all ${
+                        currentStudentFont === f.font
+                          ? 'bg-amber-600 text-white border-amber-700 shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-100/50'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
+            {/* Event / Session Topic */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">Event / Program Name</label>
+              <label className="text-[11px] font-semibold text-slate-700 block">Session Topic / Event Name</label>
               <input
                 type="text"
                 value={recData.event_name || ''}
-                onChange={(e) => updateActiveRecipientData('event_name', e.target.value)}
-                placeholder="Enter event name"
+                onChange={(e) => handleUpdateCertificateWord('topic', e.target.value)}
+                placeholder="e.g. STARTUP & ENTREPRENEURSHIP"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />
             </div>
 
+            {/* Department */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">Date of Conformance</label>
+              <label className="text-[11px] font-semibold text-slate-700 block">Department / Branch</label>
+              <input
+                type="text"
+                value={recData.department || ''}
+                onChange={(e) => handleUpdateCertificateWord('dept', e.target.value)}
+                placeholder="e.g. Department of Artificial Intelligence and Machine Learning (AI & ML)"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {/* Date of Event */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-700 block">Date of Conformance / Conduct</label>
               <input
                 type="text"
                 value={recData.event_date || ''}
-                onChange={(e) => updateActiveRecipientData('event_date', e.target.value)}
-                placeholder="e.g. October 27, 2026"
+                onChange={(e) => handleUpdateCertificateWord('date', e.target.value)}
+                placeholder="e.g. 26/10/2026"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />
             </div>
 
+            {/* Venue / College */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">Institution / Department</label>
+              <label className="text-[11px] font-semibold text-slate-700 block">Institution / College / Venue</label>
               <input
                 type="text"
                 value={recData.institution || ''}
-                onChange={(e) => updateActiveRecipientData('institution', e.target.value)}
-                placeholder="e.g. Academy of Sciences"
+                onChange={(e) => handleUpdateCertificateWord('venue', e.target.value)}
+                placeholder="e.g. Nehru Institute of Technology"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />
             </div>
 
+            {/* Recipient Email */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-600 block">Recipient Email</label>
+              <label className="text-[11px] font-semibold text-slate-700 block">Recipient Email</label>
               <input
                 type="email"
                 value={recData.email || ''}
@@ -1281,22 +1412,35 @@ export const CanvasWorkspace: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
             <button
-              onClick={handleDownloadActivePdf}
-              disabled={isExporting}
-              className="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1"
+              onClick={async () => {
+                await saveElementsToBackend();
+                alert('All certificate words and styling saved successfully!');
+              }}
+              className="bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow-2xs"
+              title="Save all edits to the template and recipient store"
             >
-              <Download className="h-3 w-3" />
-              <span>Download PDF</span>
+              <CheckSquare className="h-3 w-3" />
+              <span>Save & Sync</span>
             </button>
-            <button
-              onClick={handleDownloadActivePng}
-              disabled={isExporting}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
-            >
-              Download PNG
-            </button>
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={handleDownloadActivePdf}
+                disabled={isExporting}
+                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center space-x-1"
+              >
+                <Download className="h-3 w-3" />
+                <span>PDF</span>
+              </button>
+              <button
+                onClick={handleDownloadActivePng}
+                disabled={isExporting}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg"
+              >
+                PNG
+              </button>
+            </div>
           </div>
         </div>
       )}

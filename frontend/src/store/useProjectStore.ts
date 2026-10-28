@@ -177,23 +177,71 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updateActiveRecipientData: async (key: string, value: any) => {
-    const { recipients, activeRecipientIndex } = get();
-    const activeRec = recipients[activeRecipientIndex];
-    if (!activeRec) return;
+    const { recipients, activeRecipientIndex, currentProject } = get();
+    let activeRec = recipients[activeRecipientIndex];
+    let updatedList = [...recipients];
+
+    if (!activeRec) {
+      activeRec = {
+        id: 'draft-rec-001',
+        project_id: currentProject?.id || 'sample-project',
+        data: {},
+        source: 'manual',
+        status: 'draft',
+        validation_errors: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      updatedList = [activeRec];
+    }
 
     const updatedData = { ...activeRec.data, [key]: value };
-    const updatedRec = { ...activeRec, data: updatedData };
-    
-    // Update local state immediately for instant feedback
-    const updatedList = [...recipients];
-    updatedList[activeRecipientIndex] = updatedRec;
-    set({ recipients: updatedList });
 
-    // Persist to backend
-    try {
-      await api.updateRecipient(activeRec.id, updatedData);
-    } catch (err) {
-      console.error('Failed to update recipient data:', err);
+    // Synchronize person/student name synonyms
+    const kLow = key.toLowerCase();
+    if (['recipient_name', 'name', 'full_name', 'student_name', 's_name', 'sname', 's.name', 's_word', 'participant_name', 'candidate_name'].includes(kLow)) {
+      updatedData.recipient_name = value;
+      updatedData.name = value;
+      updatedData.full_name = value;
+      updatedData.student_name = value;
+      updatedData.s_name = value;
+      updatedData.sname = value;
+    }
+    // Synchronize event / topic synonyms
+    if (['event_name', 'session_topic', 'topic', 'event'].includes(kLow)) {
+      updatedData.event_name = value;
+      updatedData.session_topic = value;
+      updatedData.topic = value;
+    }
+    // Synchronize department synonyms
+    if (['department', 'dept', 'branch'].includes(kLow)) {
+      updatedData.department = value;
+      updatedData.dept = value;
+    }
+    // Synchronize date synonyms
+    if (['event_date', 'date'].includes(kLow)) {
+      updatedData.event_date = value;
+      updatedData.date = value;
+    }
+    // Synchronize venue / institution synonyms
+    if (['institution', 'venue', 'college', 'university'].includes(kLow)) {
+      updatedData.institution = value;
+      updatedData.venue = value;
+      updatedData.college = value;
+    }
+
+    const updatedRec = { ...activeRec, data: updatedData };
+    const curIdx = activeRecipientIndex >= 0 && activeRecipientIndex < updatedList.length ? activeRecipientIndex : 0;
+    updatedList[curIdx] = updatedRec;
+    set({ recipients: updatedList, activeRecipientIndex: curIdx });
+
+    // Persist to backend if real ID
+    if (!activeRec.id.startsWith('draft-')) {
+      try {
+        await api.updateRecipient(activeRec.id, updatedData);
+      } catch (err) {
+        console.error('Failed to update recipient data:', err);
+      }
     }
   },
 

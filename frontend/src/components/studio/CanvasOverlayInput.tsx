@@ -23,10 +23,20 @@ export const CanvasOverlayInput: React.FC<CanvasOverlayInputProps> = ({
   const activeRec = recipients[activeRecipientIndex];
   const bKey = element.binding_key;
   
-  // If it's a dynamic variable, edit the recipient's bound field; if static, edit element content!
-  const initialValue = bKey 
-    ? (activeRec?.data?.[bKey] ?? element.content ?? '') 
-    : (element.content ?? '');
+  // Resolve accurate initial value across element content and recipient data aliases
+  let initialValue = element.content ?? '';
+  if (bKey && activeRec?.data) {
+    if (activeRec.data[bKey] !== undefined && String(activeRec.data[bKey]).trim() !== '') {
+      initialValue = String(activeRec.data[bKey]);
+    } else if (['recipient_name', 'name', 'full_name', 'student_name', 's_name', 'sname', 's.name'].includes(bKey.toLowerCase())) {
+      for (const k of ['recipient_name', 'student_name', 's_name', 'sname', 's.name', 'full_name', 'name']) {
+        if (activeRec.data[k] !== undefined && String(activeRec.data[k]).trim() !== '') {
+          initialValue = String(activeRec.data[k]);
+          break;
+        }
+      }
+    }
+  }
 
   const [val, setVal] = useState(initialValue);
   const isMultiline = val.includes('\n') || (element.max_lines && element.max_lines > 1);

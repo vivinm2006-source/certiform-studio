@@ -185,7 +185,7 @@ export const PropertiesPanel: React.FC = () => {
             <h4 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider">Typography</h4>
 
             {/* Font Family */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-[11px] text-slate-500 font-medium">Font Family</label>
               <select
                 value={selectedEl.font_family}
@@ -198,6 +198,28 @@ export const PropertiesPanel: React.FC = () => {
                   </option>
                 ))}
               </select>
+              {/* Quick Font Switcher Pills */}
+              <div className="flex flex-wrap gap-1 pt-1">
+                {[
+                  { name: 'Script', font: 'Great Vibes' },
+                  { name: 'Serif', font: 'Playfair Display' },
+                  { name: 'Sans', font: 'Montserrat' },
+                  { name: 'Academic', font: 'Cinzel' },
+                ].map((item) => (
+                  <button
+                    key={item.font}
+                    type="button"
+                    onClick={() => updateElementProps(selectedEl.id, { font_family: item.font })}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                      selectedEl.font_family === item.font
+                        ? 'bg-brand-600 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Font Size & Weight */}

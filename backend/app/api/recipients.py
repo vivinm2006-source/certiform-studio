@@ -189,16 +189,30 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
             mapped_data.get("full_name") or
             mapped_data.get("name") or
             mapped_data.get("student_name") or
+            mapped_data.get("s_name") or
+            mapped_data.get("sname") or
+            mapped_data.get("s.name") or
             mapped_data.get("participant_name") or
             mapped_data.get("candidate_name") or
             mapped_data.get("attendee_name") or
             mapped_data.get("first_name")
         )
         
-        # If not matched yet, check any column key that contains 'name'
+        # If not matched yet, check column keys that contain person terms
         if not detected_name:
             for k, v in r.items():
-                if "name" in k.lower() and v is not None and str(v).strip():
+                k_lower = k.lower()
+                if any(term in k_lower for term in ["student", "candidate", "participant", "recipient", "person", "member"]) and v and str(v).strip():
+                    detected_name = str(v).strip()
+                    break
+                    
+        # Check general 'name' column while ignoring event/college/institution/department names
+        if not detected_name:
+            for k, v in r.items():
+                k_lower = k.lower()
+                if any(skip in k_lower for skip in ["event", "topic", "session", "workshop", "college", "institute", "dept", "department", "school", "faculty"]):
+                    continue
+                if "name" in k_lower and v is not None and str(v).strip():
                     detected_name = str(v).strip()
                     break
 

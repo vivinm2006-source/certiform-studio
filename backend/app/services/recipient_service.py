@@ -6,18 +6,28 @@ from sqlalchemy.orm import Session
 from app.models import Recipient, FormField, Project
 
 SYNONYM_MAP = {
-    # Recipient name synonyms
+    # Recipient & Student name synonyms
     "name": "recipient_name",
     "full_name": "recipient_name",
     "fullname": "recipient_name",
-    "participant_name": "recipient_name",
-    "participant": "recipient_name",
     "student_name": "recipient_name",
     "student": "recipient_name",
-    "attendee_name": "recipient_name",
-    "attendee": "recipient_name",
+    "students_name": "recipient_name",
+    "student's_name": "recipient_name",
+    "s_name": "recipient_name",
+    "sname": "recipient_name",
+    "s.name": "recipient_name",
+    "s_word": "recipient_name",
+    "name_of_the_student": "recipient_name",
+    "name_of_student": "recipient_name",
+    "name_of_the_candidate": "recipient_name",
+    "name_of_candidate": "recipient_name",
     "candidate_name": "recipient_name",
     "candidate": "recipient_name",
+    "participant_name": "recipient_name",
+    "participant": "recipient_name",
+    "attendee_name": "recipient_name",
+    "attendee": "recipient_name",
     "recipient": "recipient_name",
     "recipient_name": "recipient_name",
     "person_name": "recipient_name",
