@@ -11,9 +11,22 @@ import { IssuanceCenter } from './components/issuance/IssuanceCenter';
 import { VerificationCenter } from './components/verification/VerificationCenter';
 import { InstantCertificateModal } from './components/issuance/InstantCertificateModal';
 import { TemplateGalleryModal } from './components/studio/TemplateGalleryModal';
+import { PublicVerificationPage } from './components/public/PublicVerificationPage';
+import { PublicFormPage } from './components/public/PublicFormPage';
 import { useProjectStore } from './store/useProjectStore';
 
 export function App() {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+  // Public standalone routes
+  if (pathname.startsWith('/verify') || pathname.startsWith('/public/verify')) {
+    return <PublicVerificationPage />;
+  }
+
+  if (pathname.startsWith('/forms') || pathname.startsWith('/public/forms')) {
+    return <PublicFormPage />;
+  }
+
   const { 
     currentProject, loadProject, activeWorkspace, isLoading, 
     isQuickCreateOpen, setQuickCreateOpen, 
