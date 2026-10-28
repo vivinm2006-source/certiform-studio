@@ -64,14 +64,20 @@ def upload_signature_image(file: UploadFile = File(...)):
     if ext not in ("png", "webp"):
         raise HTTPException(status_code=400, detail="Signature images must be transparent PNG or WEBP.")
         
-    saved_filename = f"sig_{uuid.uuid4().hex[:12]}.{ext}"
-    dest_path = settings.UPLOADS_DIR / saved_filename
-    
-    with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    file_bytes = file.file.read()
+    b64_content = base64.b64encode(file_bytes).decode("utf-8")
+    mime_type = "image/webp" if ext == "webp" else "image/png"
+    data_url = f"data:{mime_type};base64,{b64_content}"
+
+    try:
+        saved_filename = f"sig_{uuid.uuid4().hex[:12]}.{ext}"
+        dest_path = settings.UPLOADS_DIR / saved_filename
+        with open(dest_path, "wb") as buffer:
+            buffer.write(file_bytes)
+    except Exception:
+        pass
         
-    asset_url = f"/storage/uploads/{saved_filename}"
-    return {"success": True, "asset_url": asset_url}
+    return {"success": True, "asset_url": data_url}
 
 @router.delete("/{id}")
 def delete_signature(id: str, db: Session = Depends(get_db)):

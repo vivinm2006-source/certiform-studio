@@ -46,10 +46,11 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
       const file = e.target.files[0];
       const res = await api.uploadTemplateBackground(activeTemplate.id, file);
       
-      // Update template in store
+      // Update template in store and clean legacy static overlays so old fonts don't overlay the artwork
       useProjectStore.setState((s) => ({
-        activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: res.background_asset_url } : null,
+        activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: res.background_asset_url, background_color: '' } : null,
       }));
+      await useProjectStore.getState().cleanTemplateForArtwork(activeTemplate.id);
       setIsUploading(false);
     } catch (err: any) {
       setIsUploading(false);

@@ -416,7 +416,10 @@ export const CanvasWorkspace: React.FC = () => {
       const a = document.createElement('a');
       a.href = url;
       a.download = `${recData.recipient_name || 'Certificate'}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('PDF export failed:', err);
     } finally {
@@ -443,7 +446,9 @@ export const CanvasWorkspace: React.FC = () => {
       const a = document.createElement('a');
       a.href = resp.data_url;
       a.download = `${recData.recipient_name || 'Certificate'}.png`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
     } catch (err) {
       console.error('PNG export failed:', err);
     } finally {

@@ -66,7 +66,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         tpls = project.templates || [];
       }
       
-      const tpl = tpls[0] || (project.templates?.[0] ?? null);
+      const tpl = tpls.find((t) => t.is_active) || tpls[0] || (project.templates?.find((t) => t.is_active) ?? project.templates?.[0] ?? null);
       const form = project.forms?.[0] || null;
       
       // Load recipients

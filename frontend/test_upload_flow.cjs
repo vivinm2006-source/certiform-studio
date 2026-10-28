@@ -84,7 +84,7 @@ const path = require('path');
   });
   console.log('\nToolbar Recipient Carousel Text:', carouselText);
 
-  const screenshotPath = 'C:\\Users\\ADMINPC\\.gemini\antigravity\\brain\\eef73679-f961-4e07-8dd5-d3ab2027b0bc\\test_after_upload.png';
+  const screenshotPath = 'C:/Users/ADMINPC/.gemini/antigravity/brain/eef73679-f961-4e07-8dd5-d3ab2027b0bc/test_after_upload.png';
   await page.screenshot({ path: screenshotPath });
   console.log('Screenshot saved to:', screenshotPath);
 

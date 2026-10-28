@@ -36,7 +36,7 @@ class Settings(BaseModel):
     DATABASE_URL: str = os.getenv("DATABASE_URL", DEFAULT_DB)
     
     # Public Base URL for QR codes and verification links (configurable)
-    PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:5173")
+    PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "https://certiform-studio.vercel.app" if IS_VERCEL else "http://localhost:5173")
     
     # Document Rendering Defaults
     DEFAULT_DPI: int = 300

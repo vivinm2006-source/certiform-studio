@@ -77,7 +77,10 @@ export const IssuanceCenter: React.FC = () => {
       const a = document.createElement('a');
       a.href = url;
       a.download = `${recData.recipient_name || 'Certificate'}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
       setIsDownloadingSingle(false);
     } catch (err) {
       console.error('Download failed:', err);
@@ -100,7 +103,9 @@ export const IssuanceCenter: React.FC = () => {
       const a = document.createElement('a');
       a.href = resp.data_url;
       a.download = `${recData.recipient_name || 'Certificate'}.png`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       setIsDownloadingSingle(false);
     } catch (err) {
       console.error('Download failed:', err);
@@ -433,13 +438,31 @@ export const IssuanceCenter: React.FC = () => {
                 </span>
 
                 {activeJob.status === 'completed' && activeJob.artifact_url && (
-                  <a
-                    href={`/api/v1/issuance/jobs/${activeJob.id}/download`}
-                    className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors"
+                  <button
+                    onClick={async () => {
+                      try {
+                        const tplParam = activeTemplate?.id ? `?template_id=${activeTemplate.id}&t=${Date.now()}` : `?t=${Date.now()}`;
+                        const res = await fetch(`/api/v1/issuance/jobs/${activeJob.id}/download${tplParam}`, {
+                          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+                        });
+                        const blob = await res.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = activeJob.artifact_filename || 'certificates_bundle.zip';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                      } catch (err: any) {
+                        alert('Download error: ' + (err.message || 'Network issue'));
+                      }
+                    }}
+                    className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>Download Ready Artifact</span>
-                  </a>
+                  </button>
                 )}
               </div>
             </div>

@@ -732,18 +732,26 @@ def upload_template_background(template_id: str, file: UploadFile = File(...), d
     if ext not in ("png", "jpg", "jpeg", "webp"):
         raise HTTPException(status_code=400, detail="Only PNG, JPG, and WEBP images are supported for backgrounds")
         
-    saved_filename = f"bg_{template_id}_{uuid.uuid4().hex[:8]}.{ext}"
-    dest_path = settings.UPLOADS_DIR / saved_filename
-    
-    with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    file_bytes = file.file.read()
+    b64_content = base64.b64encode(file_bytes).decode("utf-8")
+    mime_type = "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
+    data_url = f"data:{mime_type};base64,{b64_content}"
+
+    # Also persist to disk if directory is writable (e.g. local dev)
+    try:
+        saved_filename = f"bg_{template_id}_{uuid.uuid4().hex[:8]}.{ext}"
+        dest_path = settings.UPLOADS_DIR / saved_filename
+        with open(dest_path, "wb") as buffer:
+            buffer.write(file_bytes)
+    except Exception:
+        pass
         
-    asset_url = f"/storage/uploads/{saved_filename}"
-    tpl.background_asset_url = asset_url
+    tpl.background_asset_url = data_url
+    tpl.background_color = None
     db.commit()
     db.refresh(tpl)
     
-    return {"success": True, "background_asset_url": asset_url}
+    return {"success": True, "background_asset_url": data_url}
 
 @router.post("/templates/{template_id}/load-preset", response_model=CertificateTemplateOut)
 def load_template_preset(template_id: str, payload: Dict[str, str], db: Session = Depends(get_db)):
