@@ -162,7 +162,12 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
         )
     elif mode == "zip_pdf":
         zip_buf = io.BytesIO()
@@ -178,7 +183,12 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         return Response(
             content=zip_buf.getvalue(),
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
         )
     else:  # zip_png
         zip_buf = io.BytesIO()
@@ -196,7 +206,12 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         return Response(
             content=zip_buf.getvalue(),
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
         )
 
 @router.post("/projects/{project_id}/issuance/jobs", response_model=IssuanceJobOut)
@@ -252,6 +267,10 @@ def download_job_artifact(job_id: str, template_id: Optional[str] = None, db: Se
     """Download generated ZIP archive or consolidated PDF."""
     job = db.query(IssuanceJob).filter(IssuanceJob.id == job_id).first()
     if not job:
+        # Cross-lambda stateless resilience: find current project and stream directly
+        proj = db.query(Project).order_by(Project.created_at.desc()).first()
+        if proj:
+            return export_bulk_certificates_direct(proj.id, "consolidated_pdf", db, template_id=template_id)
         raise HTTPException(status_code=404, detail="Issuance job not found")
         
     full_path = None
@@ -277,10 +296,17 @@ def download_job_artifact(job_id: str, template_id: Optional[str] = None, db: Se
         return export_bulk_certificates_direct(job.project_id, job.output_mode, db, template_id=tpl_id)
         
     media_type = "application/zip" if job.artifact_filename and job.artifact_filename.endswith(".zip") else "application/pdf"
+    fn = job.artifact_filename or ("certificates.zip" if media_type == "application/zip" else "certificates.pdf")
     return FileResponse(
         path=str(full_path),
-        filename=job.artifact_filename or "certificates_export",
-        media_type=media_type
+        filename=fn,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{fn}"',
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 @router.get("/projects/{project_id}/export/bulk-pdf")

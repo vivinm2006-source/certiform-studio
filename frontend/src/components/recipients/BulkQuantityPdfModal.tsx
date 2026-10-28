@@ -13,18 +13,78 @@ interface BulkQuantityPdfModalProps {
 }
 
 export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOpen, onClose }) => {
-  const { currentProject, recipients, refreshRecipients, activeTemplate } = useProjectStore();
+  const { currentProject, recipients, refreshRecipients, activeTemplate, templates, selectTemplate } = useProjectStore();
 
   const [outputMode, setOutputMode] = useState<'consolidated_pdf' | 'zip_pdf' | 'zip_png'>('consolidated_pdf');
   const [activeJob, setActiveJob] = useState<IssuanceJob | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setActiveJob(null);
       setIsSubmitting(false);
+      setIsDownloading(false);
     }
   }, [isOpen]);
+
+  // Direct In-Memory Stream Downloader (Prevents 304 Caching and SPA navigation disconnects)
+  const triggerDirectDownload = async (url: string, defaultFilename: string) => {
+    setIsDownloading(true);
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
+      if (!resp.ok) {
+        throw new Error(`Server returned HTTP ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      
+      const dispo = resp.headers.get('content-disposition');
+      let filename = defaultFilename;
+      if (dispo && dispo.includes('filename=')) {
+        filename = dispo.split('filename=')[1].replace(/["']/g, '').trim();
+      }
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      setIsDownloading(false);
+      onClose();
+    } catch (err: any) {
+      console.warn('Job stream failed, using direct export endpoint:', err);
+      if (!currentProject) {
+        setIsDownloading(false);
+        return;
+      }
+      const fallbackUrl = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}?template_id=${activeTemplate?.id || ''}&t=${Date.now()}`;
+      try {
+        const fResp = await fetch(fallbackUrl);
+        if (!fResp.ok) throw new Error(`Direct export failed with HTTP ${fResp.status}`);
+        const fBlob = await fResp.blob();
+        const fUrl = window.URL.createObjectURL(fBlob);
+        const a = document.createElement('a');
+        a.href = fUrl;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(fUrl);
+        setIsDownloading(false);
+        onClose();
+      } catch (fErr: any) {
+        setIsDownloading(false);
+        alert('Download failed: ' + (fErr.message || 'Please check network'));
+      }
+    }
+  };
 
   // Poll for background generation progress
   useEffect(() => {
@@ -62,24 +122,31 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
     setIsSubmitting(true);
     const tplId = activeTemplate?.id;
     const tplParam = tplId ? `?template_id=${tplId}` : '';
+    const defaultFilename = outputMode === 'consolidated_pdf'
+      ? `certificates_consolidated_${currentProject.id.slice(0, 8)}.pdf`
+      : `certificates_bundle_${currentProject.id.slice(0, 8)}.zip`;
+
     try {
       const job = await api.createIssuanceJob(currentProject.id, outputMode, tplId);
       setActiveJob(job);
       setIsSubmitting(false);
       if (job.status === 'completed' || job.artifact_url) {
-        window.location.href = `/api/v1/issuance/jobs/${job.id}/download${tplParam}`;
+        const dlUrl = `/api/v1/issuance/jobs/${job.id}/download${tplParam}${tplParam ? '&' : '?'}t=${Date.now()}`;
+        await triggerDirectDownload(dlUrl, defaultFilename);
       }
     } catch (err: any) {
       setIsSubmitting(false);
-      console.warn('Job creation notice, trying direct bulk stream fallback:', err);
-      window.location.href = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplParam}`;
+      const directUrl = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplParam}${tplParam ? '&' : '?'}t=${Date.now()}`;
+      await triggerDirectDownload(directUrl, defaultFilename);
     }
   };
 
-  const handleDownloadArtifact = () => {
-    if (!activeJob) return;
+  const handleDownloadArtifact = async () => {
+    if (!activeJob || !currentProject) return;
     const tplParam = activeTemplate?.id ? `?template_id=${activeTemplate.id}` : '';
-    window.location.href = `/api/v1/issuance/jobs/${activeJob.id}/download${tplParam}`;
+    const defaultFilename = activeJob.artifact_filename || (outputMode === 'consolidated_pdf' ? 'certificates_consolidated.pdf' : 'certificates_bundle.zip');
+    const dlUrl = `/api/v1/issuance/jobs/${activeJob.id}/download${tplParam}${tplParam ? '&' : '?'}t=${Date.now()}`;
+    await triggerDirectDownload(dlUrl, defaultFilename);
   };
 
   return (
@@ -132,21 +199,23 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
               </div>
             </div>
 
-            {activeTemplate && (
-              <div className="flex items-center justify-between px-3.5 py-2 bg-indigo-50/60 border border-indigo-100 rounded-lg text-xs">
-                <span className="text-slate-600 font-medium">Selected Template:</span>
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-slate-800">{activeTemplate.name}</span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    activeTemplate.background_asset_url 
-                      ? 'bg-purple-100 text-purple-700' 
-                      : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {activeTemplate.background_asset_url ? 'Uploaded Artwork' : 'Default Preset'}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* Template Selector for Bulk Generation */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl gap-2 text-xs">
+              <span className="text-indigo-900 font-bold">
+                Certificate Template for Export:
+              </span>
+              <select
+                value={activeTemplate?.id || ''}
+                onChange={(e) => selectTemplate(e.target.value)}
+                className="bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none shadow-2xs"
+              >
+                {templates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.name} {tpl.background_asset_url ? '(Custom Artwork)' : '(Preset Frame)'}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Select Output Format */}
@@ -276,14 +345,24 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
                 <div className="pt-2">
                   <button
                     onClick={handleDownloadArtifact}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-center space-x-2 transition-colors text-xs"
+                    disabled={isDownloading}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-center space-x-2 transition-colors text-xs"
                   >
-                    <Download className="h-4 w-4" />
-                    <span>
-                      {outputMode === 'consolidated_pdf'
-                        ? 'Download Multi-Page PDF Document'
-                        : 'Download Bulk ZIP Archive'}
-                    </span>
+                    {isDownloading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Downloading File to Browser...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        <span>
+                          {outputMode === 'consolidated_pdf'
+                            ? 'Download Multi-Page PDF Document'
+                            : 'Download Bulk ZIP Archive'}
+                        </span>
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -305,10 +384,15 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
           {!activeJob || activeJob.status === 'failed' ? (
             <button
               onClick={handleStartGeneration}
-              disabled={isSubmitting || totalCount === 0}
+              disabled={isSubmitting || isDownloading || totalCount === 0}
               className="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-xs transition-colors flex items-center space-x-1.5"
             >
-              {isSubmitting ? (
+              {isDownloading ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <span>Downloading Certificates...</span>
+                </>
+              ) : isSubmitting ? (
                 <>
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   <span>Starting Background Job...</span>

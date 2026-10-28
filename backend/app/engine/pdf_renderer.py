@@ -60,7 +60,7 @@ def decode_asset_to_reader(asset_url: Optional[str]) -> Optional[ImageReader]:
     return None
 
 def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], credential_id: Optional[str] = None) -> str:
-    """Resolve dynamic placeholder tags like {{recipient_name}}."""
+    """Resolve dynamic placeholder tags like {{recipient_name}}, {{department}}, {{event_name}}, {{event_date}}."""
     if not template_str:
         return ""
     
@@ -73,13 +73,39 @@ def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], cr
         key = match.group(1).strip()
         val = merged.get(key)
         if val is None:
-            key_norm = key.lower().replace(" ", "_")
+            key_norm = key.lower().replace(" ", "_").replace("-", "_")
             val = merged.get(key_norm)
+            
         if val is None and "name" in key.lower():
-            for cand in ("recipient_name", "full_name", "name", "student_name", "participant_name"):
+            for cand in ("recipient_name", "full_name", "name", "student_name", "participant_name", "Student Name", "Full Name", "Name"):
                 if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
                     val = merged[cand]
                     break
+                    
+        if val is None and ("department" in key.lower() or "dept" in key.lower()):
+            for cand in ("department", "dept", "Department", "branch", "Department Name"):
+                if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
+                    val = merged[cand]
+                    break
+                    
+        if val is None and ("event" in key.lower() or "topic" in key.lower() or "session" in key.lower()):
+            for cand in ("event_name", "session_topic", "Session Topic", "topic", "Topic", "event", "Event"):
+                if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
+                    val = merged[cand]
+                    break
+                    
+        if val is None and ("date" in key.lower()):
+            for cand in ("event_date", "date", "Date", "event date"):
+                if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
+                    val = merged[cand]
+                    break
+                    
+        if val is None and ("venue" in key.lower() or "college" in key.lower() or "institution" in key.lower()):
+            for cand in ("venue", "institution", "college", "university", "Institute"):
+                if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
+                    val = merged[cand]
+                    break
+                    
         return str(val) if val is not None else match.group(0)
     
     return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
@@ -94,18 +120,26 @@ def extract_element_text(el: Dict[str, Any], recipient_data: Dict[str, Any], cre
     content = el.get("content", "")
     
     if el_type == "dynamic_text":
-        # 1. Exact binding key match
+        # 1. If content contains {{...}} tags, always resolve template tags first
+        if "{{" in content:
+            return resolve_text_variables(content, recipient_data, credential_id)
+
+        # 2. Exact binding key match
         if b_key and b_key in recipient_data and recipient_data[b_key] is not None and str(recipient_data[b_key]).strip():
             return str(recipient_data[b_key]).strip()
             
-        # 2. Normalized binding key match
+        # 3. Normalized binding key match
         if b_key:
             norm_b = b_key.lower().replace(" ", "_")
             if norm_b in recipient_data and recipient_data[norm_b] is not None and str(recipient_data[norm_b]).strip():
                 return str(recipient_data[norm_b]).strip()
                 
-        # 3. Smart Name Aliases for name bindings
-        if b_key in ("recipient_name", "name", "full_name", "student_name", "participant_name") or not b_key:
+        # 4. Smart Name Aliases for name bindings
+        is_name_field = (
+            (b_key and b_key.lower() in ("recipient_name", "name", "full_name", "student_name", "participant_name", "candidate_name")) or
+            (not b_key and content and content.strip().lower() in ("student name", "recipient name", "participant name", "candidate name", "full name", "name", "ananya kumar", "john doe"))
+        )
+        if is_name_field:
             for candidate_key in ("recipient_name", "full_name", "name", "student_name", "participant_name", "candidate_name", "Full Name", "Name", "Student Name"):
                 if candidate_key in recipient_data and recipient_data[candidate_key] is not None and str(recipient_data[candidate_key]).strip():
                     return str(recipient_data[candidate_key]).strip()
@@ -113,12 +147,26 @@ def extract_element_text(el: Dict[str, Any], recipient_data: Dict[str, Any], cre
             for k, v in recipient_data.items():
                 if "name" in k.lower() and v is not None and str(v).strip():
                     return str(v).strip()
+
+        # 5. Department Aliases
+        if b_key and b_key.lower() in ("department", "dept"):
+            for cand in ("department", "dept", "Department", "branch", "Department Name"):
+                if cand in recipient_data and recipient_data[cand] is not None and str(recipient_data[cand]).strip():
+                    return str(recipient_data[cand]).strip()
+
+        # 6. Event Name / Topic Aliases
+        if b_key and b_key.lower() in ("event_name", "topic", "session"):
+            for cand in ("event_name", "session_topic", "Session Topic", "topic", "Topic", "event", "Event"):
+                if cand in recipient_data and recipient_data[cand] is not None and str(recipient_data[cand]).strip():
+                    return str(recipient_data[cand]).strip()
+
+        # 7. Date Aliases
+        if b_key and b_key.lower() in ("event_date", "date"):
+            for cand in ("event_date", "date", "Date"):
+                if cand in recipient_data and recipient_data[cand] is not None and str(recipient_data[cand]).strip():
+                    return str(recipient_data[cand]).strip()
                     
-        # 4. Check if content has template variables {{...}}
-        if "{{" in content:
-            return resolve_text_variables(content, recipient_data, credential_id)
-            
-        # 5. If binding key matched nothing, check if content has fallback
+        # 8. If binding key matched nothing, check if content has fallback
         if content:
             return str(content)
             

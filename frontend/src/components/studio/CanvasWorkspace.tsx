@@ -25,14 +25,57 @@ function resolveText(templateStr: string | undefined, data: Record<string, any>,
   return templateStr.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
     const cleanKey = key.trim();
     let val = merged[cleanKey] ?? merged[cleanKey.toLowerCase()] ?? merged[cleanKey.toLowerCase().replace(/ /g, '_')];
+    
+    // Name aliases
     if (val === undefined && cleanKey.toLowerCase().includes('name')) {
-      for (const cand of ['recipient_name', 'full_name', 'name', 'student_name', 'participant_name']) {
+      for (const cand of ['recipient_name', 'full_name', 'name', 'student_name', 'participant_name', 'Student Name', 'Full Name', 'Name']) {
         if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
           val = merged[cand];
           break;
         }
       }
     }
+    
+    // Department aliases
+    if (val === undefined && (cleanKey.toLowerCase().includes('department') || cleanKey.toLowerCase().includes('dept'))) {
+      for (const cand of ['department', 'dept', 'Department', 'branch', 'Department Name']) {
+        if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
+          val = merged[cand];
+          break;
+        }
+      }
+    }
+    
+    // Event / Topic aliases
+    if (val === undefined && (cleanKey.toLowerCase().includes('event') || cleanKey.toLowerCase().includes('topic') || cleanKey.toLowerCase().includes('session'))) {
+      for (const cand of ['event_name', 'session_topic', 'Session Topic', 'topic', 'Topic', 'event', 'Event']) {
+        if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
+          val = merged[cand];
+          break;
+        }
+      }
+    }
+    
+    // Date aliases
+    if (val === undefined && cleanKey.toLowerCase().includes('date')) {
+      for (const cand of ['event_date', 'date', 'Date', 'event date']) {
+        if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
+          val = merged[cand];
+          break;
+        }
+      }
+    }
+    
+    // Venue / Institution aliases
+    if (val === undefined && (cleanKey.toLowerCase().includes('venue') || cleanKey.toLowerCase().includes('college') || cleanKey.toLowerCase().includes('institution'))) {
+      for (const cand of ['venue', 'institution', 'college', 'university', 'Institute']) {
+        if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
+          val = merged[cand];
+          break;
+        }
+      }
+    }
+
     return val !== undefined ? String(val) : `{{${cleanKey}}}`;
   });
 }
@@ -47,12 +90,17 @@ function resolveDynamicValue(
     return content || '';
   }
 
-  // 1. Direct binding key lookup
+  // 1. If content contains {{...}} tags, always resolve template tags first
+  if (content && content.includes('{{')) {
+    return resolveText(content, data, credentialId);
+  }
+
+  // 2. Direct binding key lookup
   if (bindingKey && data[bindingKey] !== undefined && String(data[bindingKey]).trim() !== '') {
     return String(data[bindingKey]);
   }
 
-  // 2. Normalized binding key lookup
+  // 3. Normalized binding key lookup
   if (bindingKey) {
     const norm = bindingKey.toLowerCase().replace(/ /g, '_');
     if (data[norm] !== undefined && String(data[norm]).trim() !== '') {
@@ -60,7 +108,7 @@ function resolveDynamicValue(
     }
   }
 
-  // 3. Smart Name fallback: if binding key looks like a name field, or content is a known name placeholder
+  // 4. Smart Name fallback: ONLY if binding key looks like a name field, or content is a known name placeholder
   const isNameBinding = (bindingKey && ['recipient_name', 'name', 'full_name', 'student_name', 'participant_name', 'candidate_name'].includes(bindingKey.toLowerCase())) ||
     (!bindingKey && content && ['ananya kumar', 'recipient name', 'student name', 'candidate name', 'full name', 'name', 'john doe'].includes(content.toLowerCase().trim()));
 
@@ -83,12 +131,34 @@ function resolveDynamicValue(
     }
   }
 
-  // 4. If content contains {{...}} tags, resolve with full data
-  if (content && content.includes('{{')) {
-    return resolveText(content, data, credentialId);
+  // 5. Department fallback
+  if (bindingKey && ['department', 'dept'].includes(bindingKey.toLowerCase())) {
+    for (const cand of ['department', 'dept', 'Department', 'branch', 'Department Name']) {
+      if (data[cand] !== undefined && String(data[cand]).trim() !== '') {
+        return String(data[cand]);
+      }
+    }
   }
 
-  // 5. Fallback to content
+  // 6. Event Name / Topic fallback
+  if (bindingKey && ['event_name', 'topic', 'session'].includes(bindingKey.toLowerCase())) {
+    for (const cand of ['event_name', 'session_topic', 'Session Topic', 'topic', 'Topic', 'event', 'Event']) {
+      if (data[cand] !== undefined && String(data[cand]).trim() !== '') {
+        return String(data[cand]);
+      }
+    }
+  }
+
+  // 7. Date fallback
+  if (bindingKey && ['event_date', 'date'].includes(bindingKey.toLowerCase())) {
+    for (const cand of ['event_date', 'date', 'Date']) {
+      if (data[cand] !== undefined && String(data[cand]).trim() !== '') {
+        return String(data[cand]);
+      }
+    }
+  }
+
+  // 8. Fallback to content
   return content || '';
 }
 

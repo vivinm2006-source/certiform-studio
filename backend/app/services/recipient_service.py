@@ -48,25 +48,39 @@ SYNONYM_MAP = {
     "id": "registration_id",
     "certificate_id": "certificate_id",
     
+    # Department / Academic Branch
+    "department": "department",
+    "dept": "department",
+    "branch": "department",
+    "stream": "department",
+    "discipline": "department",
+    "major": "department",
+
     # Organization / College / Institution
     "organization": "institution",
     "org": "institution",
     "company": "institution",
     "college": "institution",
     "university": "institution",
-    "dept": "institution",
-    "department": "institution",
     "school": "institution",
     "institute": "institution",
+    "institution": "institution",
+    "venue": "venue",
+    "location": "venue",
     
-    # Award / Course / Event
+    # Award / Course / Event / Session Topic
     "award": "award_category",
     "category": "award_category",
     "course": "course_name",
     "course_name": "course_name",
     "date": "event_date",
+    "event_date": "event_date",
     "event": "event_name",
     "event_name": "event_name",
+    "session": "event_name",
+    "session_topic": "event_name",
+    "topic": "event_name",
+    "theme": "event_name",
     "workshop": "event_name",
     "conference": "event_name",
 }
