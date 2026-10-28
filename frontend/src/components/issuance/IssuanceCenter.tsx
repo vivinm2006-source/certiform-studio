@@ -114,18 +114,20 @@ export const IssuanceCenter: React.FC = () => {
     setDownloadingMode(mode);
     setIsSubmittingJob(true);
     try {
-      let exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-pdf`;
+      const tplId = activeTemplate?.id;
+      const tplQuery = tplId ? `?template_id=${tplId}` : '';
+      let exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-pdf${tplQuery}`;
       let defaultName = `certificates_consolidated_${currentProject.id.slice(0, 8)}.pdf`;
       if (mode === 'zip_pdf') {
-        exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-zip`;
+        exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-zip${tplQuery}`;
         defaultName = `certificates_pdf_bundle_${currentProject.id.slice(0, 8)}.zip`;
       } else if (mode === 'zip_png') {
-        exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-png`;
+        exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-png${tplQuery}`;
         defaultName = `certificates_png_bundle_${currentProject.id.slice(0, 8)}.zip`;
       }
 
       // Trigger background issuance tracking so credentials are logged and recorded in database
-      api.createIssuanceJob(currentProject.id, mode).then((job) => {
+      api.createIssuanceJob(currentProject.id, mode, tplId).then((job) => {
         setActiveJob(job);
       }).catch((e) => console.warn('Issuance record tracking notice:', e));
 
@@ -146,7 +148,9 @@ export const IssuanceCenter: React.FC = () => {
       useProjectStore.getState().refreshRecipients();
     } catch (err: any) {
       console.warn('Direct stream notice, redirecting to file endpoint:', err);
-      window.location.href = `/api/v1/projects/${currentProject.id}/export/${mode === 'consolidated_pdf' ? 'bulk-pdf' : mode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}`;
+      const tplId = activeTemplate?.id;
+      const tplQuery = tplId ? `?template_id=${tplId}` : '';
+      window.location.href = `/api/v1/projects/${currentProject.id}/export/${mode === 'consolidated_pdf' ? 'bulk-pdf' : mode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplQuery}`;
     } finally {
       setIsSubmittingJob(false);
       setDownloadingMode(null);
@@ -295,11 +299,26 @@ export const IssuanceCenter: React.FC = () => {
 
         {/* BULK ISSUANCE MODES */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="font-bold text-slate-900 text-sm">Bulk Issuance & Packaging</h3>
-            <p className="text-xs text-slate-500">
-              Asynchronous background worker generates credentials, registers verification IDs & packages downloads
-            </p>
+          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Bulk Issuance & Packaging</h3>
+              <p className="text-xs text-slate-500">
+                Generates credentials, registers verification IDs & packages downloads for all recipients
+              </p>
+            </div>
+            {activeTemplate && (
+              <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 self-start sm:self-center">
+                <span className="text-[11px] text-slate-500 font-medium">Export Template:</span>
+                <span className="text-xs font-bold text-slate-800">{activeTemplate.name}</span>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  activeTemplate.background_asset_url 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {activeTemplate.background_asset_url ? 'Uploaded Artwork' : 'Default Preset'}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">

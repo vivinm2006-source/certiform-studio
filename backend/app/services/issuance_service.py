@@ -39,11 +39,15 @@ def process_issuance_job(job_id: str):
             db.commit()
             return
             
-        # Get active template
-        template = db.query(CertificateTemplate).filter(
-            CertificateTemplate.project_id == project.id,
-            CertificateTemplate.is_active == True
-        ).first()
+        # Get specified or active template
+        template = None
+        if hasattr(job, 'template_id') and job.template_id:
+            template = db.query(CertificateTemplate).filter(CertificateTemplate.id == job.template_id).first()
+        if not template:
+            template = db.query(CertificateTemplate).filter(
+                CertificateTemplate.project_id == project.id,
+                CertificateTemplate.is_active == True
+            ).first()
         if not template:
             template = db.query(CertificateTemplate).filter(CertificateTemplate.project_id == project.id).first()
             

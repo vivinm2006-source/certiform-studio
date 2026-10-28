@@ -155,8 +155,8 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
             width_pt: chosenFormat.width,
             height_pt: chosenFormat.height,
             background_asset_url: dataUrl,
-            background_color: '#FFFFFF',
-            preset: 'blank',
+            background_color: undefined,
+            preset: 'uploaded',
           });
 
           // Also try uploading file to server storage if supported

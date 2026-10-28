@@ -2,6 +2,7 @@ import io
 import os
 import re
 import base64
+import unicodedata
 from typing import Dict, Any, List, Optional
 from reportlab.lib.colors import HexColor, white, black, transparent
 from reportlab.pdfgen import canvas
@@ -9,6 +10,34 @@ from reportlab.lib.utils import ImageReader
 from app.config import settings
 from app.engine.coordinates import CoordinateTransformer
 from app.engine.qr_generator import generate_qr_bytes
+
+def sanitize_text_for_pdf(text: str) -> str:
+    """
+    Sanitize and transliterate non-Latin-1 characters so ReportLab Type 1 vector
+    fonts render cleanly without missing glyph boxes or font errors across all operating systems.
+    """
+    if not text:
+        return ""
+    try:
+        text.encode("latin-1")
+        return text
+    except UnicodeEncodeError:
+        result = []
+        for ch in text:
+            try:
+                ch.encode("latin-1")
+                result.append(ch)
+            except UnicodeEncodeError:
+                if ch == 'ł': result.append('l')
+                elif ch == 'Ł': result.append('L')
+                elif ch == 'đ': result.append('d')
+                elif ch == 'Đ': result.append('D')
+                elif ch in ('ø', 'Ø'): result.append('o' if ch == 'ø' else 'O')
+                else:
+                    decomposed = unicodedata.normalize('NFKD', ch)
+                    base = ''.join(c for c in decomposed if not unicodedata.combining(c))
+                    result.append(base if base else '')
+        return ''.join(result)
 
 def decode_asset_to_reader(asset_url: Optional[str]) -> Optional[ImageReader]:
     """Decode base64 data URL or load from storage path as ReportLab ImageReader."""
@@ -174,6 +203,7 @@ def render_page_to_canvas(
         
         if el_type in ("dynamic_text", "static_text"):
             text_val = extract_element_text(el, recipient_data, credential_id)
+            text_val = sanitize_text_for_pdf(text_val)
                 
             if el.get("uppercase", False):
                 text_val = text_val.upper()

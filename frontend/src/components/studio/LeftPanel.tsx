@@ -2,15 +2,19 @@ import React, { useState } from 'react';
 import { 
   Type, Shapes, QrCode, PenTool, LayoutTemplate, 
   Image as ImageIcon, Layers, Plus, Lock, Unlock, 
-  Eye, EyeOff, Trash2, ArrowUp, ArrowDown, Upload, X 
+  Eye, EyeOff, Trash2, ArrowUp, ArrowDown, Upload, X,
+  Sparkles, Check, Palette, MoveVertical, RefreshCw
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { api } from '../../services/api';
 
 export const LeftPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'text' | 'elements' | 'templates' | 'signatures' | 'qr' | 'layers'>('text');
-  const { activeTemplate, templates, selectTemplate, setTemplateGalleryOpen, activeForm } = useProjectStore();
+  const [activeTab, setActiveTab] = useState<'text' | 'elements' | 'templates' | 'signatures' | 'qr' | 'layers'>('templates');
+  const { 
+    activeTemplate, templates, selectTemplate, setTemplateGalleryOpen, 
+    activeForm, cleanTemplateForArtwork 
+  } = useProjectStore();
   const { 
     addElement, selectedElementId, setSelectedElementId, 
     updateElementProps, deleteElement, reorderElement,
@@ -24,10 +28,12 @@ export const LeftPanel: React.FC = () => {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const dataUrl = event.target?.result as string;
-        useProjectStore.setState((s) => ({
-          activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: dataUrl } : null,
-        }));
-        await api.updateTemplate(activeTemplate.id, { background_asset_url: dataUrl });
+        await api.updateTemplate(activeTemplate.id, { 
+          background_asset_url: dataUrl,
+          background_color: ''
+        });
+        // Automatically clean legacy static overlays so old fonts don't overlay the newly uploaded art
+        await cleanTemplateForArtwork(activeTemplate.id);
         try {
           await api.uploadTemplateBackground(activeTemplate.id, file);
         } catch {
@@ -283,167 +289,302 @@ export const LeftPanel: React.FC = () => {
         {/* TEMPLATES & BACKGROUNDS TAB */}
         {activeTab === 'templates' && (
           <div className="space-y-4">
-            {/* Template Switcher & Add Template Button */}
-            <div className="p-3 bg-brand-50/50 border border-brand-200 rounded-xl space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Project Templates ({templates.length})
-                </span>
-                <button
-                  onClick={() => setTemplateGalleryOpen(true)}
-                  className="px-2 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded text-[10px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
-                >
-                  <Plus className="h-3 w-3 stroke-[2.5]" />
-                  <span>New Template</span>
-                </button>
-              </div>
-
-              <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
-                {templates.map((tpl) => {
-                  const isActive = activeTemplate?.id === tpl.id;
-                  return (
-                    <button
-                      key={tpl.id}
-                      onClick={() => selectTemplate(tpl.id)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between border transition-all ${
-                        isActive
-                          ? 'bg-white border-brand-500 font-bold text-brand-700 shadow-2xs ring-1 ring-brand-500/20'
-                          : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
-                      }`}
-                    >
-                      <div className="truncate pr-1">
-                        <div className="truncate text-[11px]">{tpl.name}</div>
-                        <div className="text-[9px] text-slate-400 font-normal">{tpl.page_format.replace('_', ' ')}</div>
-                      </div>
-                      {isActive && <div className="h-2 w-2 rounded-full bg-brand-600 flex-shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Header with Add New Template Button */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Templates ({templates.length})
+              </span>
+              <button
+                onClick={() => setTemplateGalleryOpen(true)}
+                className="px-2 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded text-[10px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
+              >
+                <Plus className="h-3 w-3 stroke-[2.5]" />
+                <span>New Template</span>
+              </button>
             </div>
 
-            <div>
-              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-1">
-                Upload Custom Template
-              </h3>
-              <p className="text-[11px] text-slate-500 mb-2">
-                Use your own certificate background image from Canva, Photoshop, or your organization.
-              </p>
-              
-              <label className="w-full border-2 border-dashed border-brand-300 hover:border-brand-500 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-brand-50/20 hover:bg-brand-50/50 shadow-2xs">
-                <Upload className="h-6 w-6 text-brand-600 mb-1" />
-                <span className="text-xs font-semibold text-slate-800">Upload Certificate File</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, WEBP (300 DPI)</span>
-                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
-              </label>
-
-              {activeTemplate?.background_asset_url && (
-                <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-800">
-                    <span>Custom Template Active</span>
-                    <button
-                      onClick={async () => {
-                        if (!activeTemplate) return;
-                        await api.updateTemplate(activeTemplate.id, { background_asset_url: '' });
-                        useProjectStore.setState((s) => ({
-                          activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: undefined } : null,
-                        }));
-                      }}
-                      className="text-rose-600 hover:underline text-[11px]"
-                    >
-                      Remove
-                    </button>
+            {/* SEPARATE TEMPLATE SELECTORS */}
+            <div className="space-y-3">
+              {/* Category 1: Uploaded Custom Artwork Templates */}
+              <div className="p-2.5 bg-purple-50/60 border border-purple-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-purple-900">
+                  <div className="flex items-center space-x-1.5">
+                    <ImageIcon className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Uploaded Artwork Templates</span>
                   </div>
-                  <div className="flex items-center space-x-1.5 pt-1">
-                    <button
-                      onClick={async () => {
-                        if (!activeTemplate) return;
-                        const updated = activeTemplate.elements.map((el) => {
-                          if (el.element_type === 'shape' && (el.shape_type === 'rectangle' || el.shape_type === 'line')) {
-                            return { ...el, is_visible: false };
-                          }
-                          return el;
-                        });
-                        useProjectStore.setState((s) => ({
-                          activeTemplate: s.activeTemplate ? { ...s.activeTemplate, elements: updated } : null,
-                        }));
-                        await api.batchSyncElements(activeTemplate.id, updated);
-                      }}
-                      className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg py-1 text-[10px] font-medium text-center"
-                    >
-                      Hide Borders
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!activeTemplate) return;
-                        const updated = activeTemplate.elements.map((el) => ({ ...el, is_visible: true }));
-                        useProjectStore.setState((s) => ({
-                          activeTemplate: s.activeTemplate ? { ...s.activeTemplate, elements: updated } : null,
-                        }));
-                        await api.batchSyncElements(activeTemplate.id, updated);
-                      }}
-                      className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg py-1 text-[10px] font-medium text-center"
-                    >
-                      Show All
-                    </button>
-                  </div>
+                  <span className="text-[10px] bg-purple-200/70 text-purple-800 px-1.5 py-0.2 rounded font-mono">
+                    {templates.filter(t => !!t.background_asset_url).length}
+                  </span>
                 </div>
-              )}
-            </div>
+                
+                {templates.filter(t => !!t.background_asset_url).length === 0 ? (
+                  <p className="text-[10px] text-purple-600/80 italic py-1">
+                    No custom artwork uploaded yet. Upload a certificate below.
+                  </p>
+                ) : (
+                  <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
+                    {templates.filter(t => !!t.background_asset_url).map((tpl) => {
+                      const isActive = activeTemplate?.id === tpl.id;
+                      return (
+                        <button
+                          key={tpl.id}
+                          onClick={() => selectTemplate(tpl.id)}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between border transition-all ${
+                            isActive
+                              ? 'bg-white border-purple-500 font-bold text-purple-900 shadow-2xs ring-1 ring-purple-500/30'
+                              : 'bg-white/60 border-purple-100 text-slate-700 hover:bg-white'
+                          }`}
+                        >
+                          <div className="truncate pr-1">
+                            <div className="truncate text-[11px]">{tpl.name}</div>
+                            <div className="text-[9px] text-purple-600/70 font-normal">Custom Artwork • {tpl.page_format.replace('_', ' ')}</div>
+                          </div>
+                          {isActive && <div className="h-2 w-2 rounded-full bg-purple-600 flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-            <div>
-              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-2">Canvas Background Color</h3>
-              <div className="flex items-center space-x-2">
-                {['#FCFAF5', '#FFFFFF', '#FFFDF7', '#F8FAFC', '#F0F9FF', '#0F2841'].map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => {
-                      if (activeTemplate) {
-                        useProjectStore.setState((s) => ({
-                          activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_color: c } : null,
-                        }));
-                        api.updateTemplate(activeTemplate.id, { background_color: c });
-                      }
-                    }}
-                    style={{ backgroundColor: c }}
-                    className="w-7 h-7 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform"
-                  />
-                ))}
+              {/* Category 2: Default Preset Templates */}
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                  <div className="flex items-center space-x-1.5">
+                    <LayoutTemplate className="h-3.5 w-3.5 text-brand-600" />
+                    <span>Default Preset Templates</span>
+                  </div>
+                  <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono">
+                    {templates.filter(t => !t.background_asset_url).length}
+                  </span>
+                </div>
+
+                <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
+                  {templates.filter(t => !t.background_asset_url).map((tpl) => {
+                    const isActive = activeTemplate?.id === tpl.id;
+                    return (
+                      <button
+                        key={tpl.id}
+                        onClick={() => selectTemplate(tpl.id)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between border transition-all ${
+                          isActive
+                            ? 'bg-white border-brand-500 font-bold text-brand-700 shadow-2xs ring-1 ring-brand-500/20'
+                            : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
+                        }`}
+                      >
+                        <div className="truncate pr-1">
+                          <div className="truncate text-[11px]">{tpl.name}</div>
+                          <div className="text-[9px] text-slate-400 font-normal">Preset Frame • {tpl.page_format.replace('_', ' ')}</div>
+                        </div>
+                        {isActive && <div className="h-2 w-2 rounded-full bg-brand-600 flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            <div>
-              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-2">Apply Design Preset</h3>
-              <div className="space-y-1.5">
-                {[
-                  { key: 'academic', title: 'Classic Academic Honors', desc: 'Gold borders, Cinzel serif typography' },
-                  { key: 'executive', title: 'Modern Executive Diploma', desc: 'Emerald geometric accents, modern fonts' },
-                  { key: 'tech', title: 'Innovation & Tech Summit', desc: 'Indigo styling, hash code, verification QR' },
-                  { key: 'appreciation', title: 'Certificate of Appreciation', desc: 'Warm bronze accents, appreciation citation' },
-                  { key: 'completion', title: 'Course Completion & Mastery', desc: 'Accreditation ribbon, course curriculum' },
-                ].map((preset) => (
+            {/* DEDICATED EDITOR SECTION BASED ON TEMPLATE TYPE */}
+            {activeTemplate?.background_asset_url ? (
+              /* ================= UPLOADED ARTWORK EDITOR ================= */
+              <div className="p-3 bg-purple-50/40 border border-purple-200 rounded-xl space-y-3.5">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                  <span className="text-xs font-bold text-purple-900 flex items-center space-x-1.5">
+                    <ImageIcon className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Uploaded Artwork Editor</span>
+                  </span>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">
+                    Custom Mode
+                  </span>
+                </div>
+
+                {/* 1-Click Clean Overlays Action */}
+                <div className="space-y-1">
                   <button
-                    key={preset.key}
                     onClick={async () => {
                       if (!activeTemplate) return;
-                      const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ preset: preset.key })
-                      });
-                      if (resp.ok) {
-                        const updated = await resp.json();
-                        useProjectStore.setState({ activeTemplate: updated });
-                      }
+                      await cleanTemplateForArtwork(activeTemplate.id);
                     }}
-                    className="w-full text-left p-2.5 border border-slate-200 hover:border-brand-500 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-2 shadow-xs transition-colors"
+                    title="Remove old preset text, titles, borders and shapes from overlaying on your custom artwork"
                   >
-                    <div className="text-xs font-semibold text-slate-800">{preset.title}</div>
-                    <div className="text-[10px] text-slate-500">{preset.desc}</div>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Clean Overlays (Keep Name & QR Only)</span>
                   </button>
-                ))}
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    Removes old preset text and borders so only dynamic recipient name & QR code appear over your custom design.
+                  </p>
+                </div>
+
+                {/* Recipient Name Quick Positioning */}
+                <div className="space-y-1.5 pt-1 border-t border-purple-100">
+                  <span className="text-[11px] font-bold text-slate-800 flex items-center space-x-1">
+                    <MoveVertical className="h-3 w-3 text-purple-600" />
+                    <span>Recipient Name Position</span>
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { label: 'Upper', y: 0.35 },
+                      { label: 'Center', y: 0.44 },
+                      { label: 'Lower', y: 0.55 },
+                    ].map((pos) => (
+                      <button
+                        key={pos.label}
+                        onClick={async () => {
+                          if (!activeTemplate) return;
+                          const nameEl = activeTemplate.elements.find(
+                            el => el.element_type === 'dynamic_text' && (el.binding_key === 'recipient_name' || (el.content && el.content.toLowerCase().includes('name')))
+                          );
+                          if (nameEl) {
+                            updateElementProps(nameEl.id, { y: pos.y, auto_fit_text: true });
+                          }
+                        }}
+                        className="py-1 px-2 bg-white border border-slate-200 hover:border-purple-400 rounded text-[10px] font-semibold text-slate-700 hover:text-purple-700 text-center transition-colors"
+                      >
+                        {pos.label} ({Math.round(pos.y * 100)}%)
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recipient Name Color Swatches */}
+                <div className="space-y-1.5 pt-1 border-t border-purple-100">
+                  <span className="text-[11px] font-bold text-slate-800 flex items-center space-x-1">
+                    <Palette className="h-3 w-3 text-purple-600" />
+                    <span>Recipient Name Color</span>
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    {[
+                      { label: 'Navy', hex: '#0F2841' },
+                      { label: 'Charcoal', hex: '#1E293B' },
+                      { label: 'Gold', hex: '#C89D42' },
+                      { label: 'White', hex: '#FFFFFF' },
+                      { label: 'Emerald', hex: '#059669' },
+                    ].map((c) => (
+                      <button
+                        key={c.hex}
+                        onClick={() => {
+                          if (!activeTemplate) return;
+                          const nameEl = activeTemplate.elements.find(
+                            el => el.element_type === 'dynamic_text' && (el.binding_key === 'recipient_name' || (el.content && el.content.toLowerCase().includes('name')))
+                          );
+                          if (nameEl) {
+                            updateElementProps(nameEl.id, { color: c.hex });
+                          }
+                        }}
+                        style={{ backgroundColor: c.hex }}
+                        className="w-6 h-6 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform"
+                        title={c.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Replace Custom Artwork File */}
+                <div className="pt-2 border-t border-purple-100 space-y-1.5">
+                  <label className="w-full border border-dashed border-purple-300 hover:border-purple-500 rounded-lg p-2 flex items-center justify-center space-x-2 cursor-pointer transition-colors bg-white hover:bg-purple-50/50">
+                    <Upload className="h-3.5 w-3.5 text-purple-600" />
+                    <span className="text-[11px] font-semibold text-purple-900">Replace Artwork File</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
+                  </label>
+                  <button
+                    onClick={async () => {
+                      if (!activeTemplate) return;
+                      await api.updateTemplate(activeTemplate.id, { background_asset_url: '' });
+                      useProjectStore.setState((s) => ({
+                        activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_asset_url: undefined } : null,
+                      }));
+                    }}
+                    className="w-full text-center text-[10px] text-rose-600 hover:underline"
+                  >
+                    Remove Artwork (Revert to Preset Canvas)
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* ================= DEFAULT PRESET EDITOR ================= */
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                    <LayoutTemplate className="h-3.5 w-3.5 text-brand-600" />
+                    <span>Default Preset Editor</span>
+                  </span>
+                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
+                    Preset Mode
+                  </span>
+                </div>
+
+                {/* Convert to Uploaded Artwork Banner */}
+                <div>
+                  <label className="w-full border-2 border-dashed border-brand-300 hover:border-brand-500 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-colors bg-white hover:bg-brand-50/40 shadow-2xs">
+                    <Upload className="h-5 w-5 text-brand-600 mb-1" />
+                    <span className="text-xs font-semibold text-slate-800">Upload Your Own Certificate</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Canva, Photoshop PNG or JPG</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
+                  </label>
+                </div>
+
+                {/* Canvas Background Color */}
+                <div>
+                  <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Canvas Background Color
+                  </h4>
+                  <div className="flex items-center space-x-2">
+                    {['#FCFAF5', '#FFFFFF', '#FFFDF7', '#F8FAFC', '#F0F9FF', '#0F2841'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          if (activeTemplate) {
+                            useProjectStore.setState((s) => ({
+                              activeTemplate: s.activeTemplate ? { ...s.activeTemplate, background_color: c } : null,
+                            }));
+                            api.updateTemplate(activeTemplate.id, { background_color: c });
+                          }
+                        }}
+                        style={{ backgroundColor: c }}
+                        className="w-6 h-6 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Apply Design Presets */}
+                <div>
+                  <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Change Preset Style
+                  </h4>
+                  <div className="space-y-1.5">
+                    {[
+                      { key: 'academic', title: 'Classic Academic Honors', desc: 'Gold borders & Cinzel serif' },
+                      { key: 'executive', title: 'Modern Executive Diploma', desc: 'Emerald geometric accents' },
+                      { key: 'tech', title: 'Innovation & Tech Summit', desc: 'Indigo styling & verification QR' },
+                      { key: 'appreciation', title: 'Certificate of Appreciation', desc: 'Warm bronze citation' },
+                      { key: 'completion', title: 'Course Completion & Mastery', desc: 'Accreditation ribbon' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.key}
+                        onClick={async () => {
+                          if (!activeTemplate) return;
+                          const resp = await fetch(`/api/v1/templates/${activeTemplate.id}/load-preset`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ preset: preset.key })
+                          });
+                          if (resp.ok) {
+                            const updated = await resp.json();
+                            useProjectStore.setState({ activeTemplate: updated });
+                          }
+                        }}
+                        className="w-full text-left p-2 border border-slate-200 hover:border-brand-500 rounded-lg hover:bg-white transition-colors"
+                      >
+                        <div className="text-[11px] font-semibold text-slate-800">{preset.title}</div>
+                        <div className="text-[9px] text-slate-500">{preset.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

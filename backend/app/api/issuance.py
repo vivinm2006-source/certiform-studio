@@ -95,18 +95,28 @@ def run_preflight_check(project_id: str, db: Session = Depends(get_db)):
     )
     return report
 
-def export_bulk_certificates_direct(project_id: str, mode: str, db: Session):
+def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, template_id: Optional[str] = None):
     """Directly generate and return bulk certificate export stream in-memory."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    template = db.query(CertificateTemplate).filter(
-        CertificateTemplate.project_id == project_id,
-        CertificateTemplate.is_active == True
-    ).first()
+    template = None
+    if template_id:
+        template = db.query(CertificateTemplate).filter(
+            CertificateTemplate.id == template_id,
+            CertificateTemplate.project_id == project_id
+        ).first()
+
+    if not template:
+        template = db.query(CertificateTemplate).filter(
+            CertificateTemplate.project_id == project_id,
+            CertificateTemplate.is_active == True
+        ).first()
+
     if not template:
         template = db.query(CertificateTemplate).filter(CertificateTemplate.project_id == project_id).first()
+
     if not template:
         raise HTTPException(status_code=400, detail="No certificate template found in project")
         
@@ -206,6 +216,7 @@ def create_issuance_job(project_id: str, payload: IssuanceJobCreate, db: Session
         
     job = IssuanceJob(
         project_id=project_id,
+        template_id=payload.template_id,
         output_mode=payload.output_mode,
         status="queued",
         total_count=valid_recipients_count,
@@ -237,7 +248,7 @@ def get_issuance_job_status(job_id: str, db: Session = Depends(get_db)):
     return job
 
 @router.get("/issuance/jobs/{job_id}/download")
-def download_job_artifact(job_id: str, db: Session = Depends(get_db)):
+def download_job_artifact(job_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Download generated ZIP archive or consolidated PDF."""
     job = db.query(IssuanceJob).filter(IssuanceJob.id == job_id).first()
     if not job:
@@ -248,6 +259,7 @@ def download_job_artifact(job_id: str, db: Session = Depends(get_db)):
         rel_path = job.artifact_url.replace("/storage/", "")
         full_path = settings.STORAGE_DIR / rel_path
         
+    tpl_id = template_id or job.template_id
     # If the file is not on disk (e.g. cross-lambda stateless container in Vercel),
     # re-generate it on the fly!
     if not full_path or not full_path.exists():
@@ -262,7 +274,7 @@ def download_job_artifact(job_id: str, db: Session = Depends(get_db)):
 
     if not full_path or not full_path.exists():
         # Fallback: direct in-memory stream
-        return export_bulk_certificates_direct(job.project_id, job.output_mode, db)
+        return export_bulk_certificates_direct(job.project_id, job.output_mode, db, template_id=tpl_id)
         
     media_type = "application/zip" if job.artifact_filename and job.artifact_filename.endswith(".zip") else "application/pdf"
     return FileResponse(
@@ -272,19 +284,19 @@ def download_job_artifact(job_id: str, db: Session = Depends(get_db)):
     )
 
 @router.get("/projects/{project_id}/export/bulk-pdf")
-def export_bulk_pdf_direct(project_id: str, db: Session = Depends(get_db)):
+def export_bulk_pdf_direct(project_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Direct 1-click download of all recipient certificates as a single consolidated PDF."""
-    return export_bulk_certificates_direct(project_id, "consolidated_pdf", db)
+    return export_bulk_certificates_direct(project_id, "consolidated_pdf", db, template_id=template_id)
 
 @router.get("/projects/{project_id}/export/bulk-zip")
-def export_bulk_zip_direct(project_id: str, db: Session = Depends(get_db)):
+def export_bulk_zip_direct(project_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Direct 1-click download of all recipient certificates as a ZIP archive of individual PDFs."""
-    return export_bulk_certificates_direct(project_id, "zip_pdf", db)
+    return export_bulk_certificates_direct(project_id, "zip_pdf", db, template_id=template_id)
 
 @router.get("/projects/{project_id}/export/bulk-png")
-def export_bulk_png_direct(project_id: str, db: Session = Depends(get_db)):
+def export_bulk_png_direct(project_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Direct 1-click download of all recipient certificates as a ZIP archive of PNG images."""
-    return export_bulk_certificates_direct(project_id, "zip_png", db)
+    return export_bulk_certificates_direct(project_id, "zip_png", db, template_id=template_id)
 
 @router.post("/projects/{project_id}/instant-certificate")
 def create_instant_certificate(project_id: str, payload: Dict[str, Any], db: Session = Depends(get_db)):

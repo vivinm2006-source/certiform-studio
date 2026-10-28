@@ -13,7 +13,7 @@ interface BulkQuantityPdfModalProps {
 }
 
 export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOpen, onClose }) => {
-  const { currentProject, recipients, refreshRecipients } = useProjectStore();
+  const { currentProject, recipients, refreshRecipients, activeTemplate } = useProjectStore();
 
   const [outputMode, setOutputMode] = useState<'consolidated_pdf' | 'zip_pdf' | 'zip_png'>('consolidated_pdf');
   const [activeJob, setActiveJob] = useState<IssuanceJob | null>(null);
@@ -60,23 +60,26 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
     }
 
     setIsSubmitting(true);
+    const tplId = activeTemplate?.id;
+    const tplParam = tplId ? `?template_id=${tplId}` : '';
     try {
-      const job = await api.createIssuanceJob(currentProject.id, outputMode);
+      const job = await api.createIssuanceJob(currentProject.id, outputMode, tplId);
       setActiveJob(job);
       setIsSubmitting(false);
       if (job.status === 'completed' || job.artifact_url) {
-        window.location.href = `/api/v1/issuance/jobs/${job.id}/download`;
+        window.location.href = `/api/v1/issuance/jobs/${job.id}/download${tplParam}`;
       }
     } catch (err: any) {
       setIsSubmitting(false);
       console.warn('Job creation notice, trying direct bulk stream fallback:', err);
-      window.location.href = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}`;
+      window.location.href = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplParam}`;
     }
   };
 
   const handleDownloadArtifact = () => {
     if (!activeJob) return;
-    window.location.href = `/api/v1/issuance/jobs/${activeJob.id}/download`;
+    const tplParam = activeTemplate?.id ? `?template_id=${activeTemplate.id}` : '';
+    window.location.href = `/api/v1/issuance/jobs/${activeJob.id}/download${tplParam}`;
   };
 
   return (
@@ -109,23 +112,41 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
         {/* Modal Body */}
         <div className="p-6 space-y-5 overflow-y-auto">
           
-          {/* Recipient Count Summary Card */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-brand-600 font-bold shadow-2xs">
-                <Users className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-700">Spreadsheet Recipient Roster</div>
-                <div className="text-[11px] text-slate-500">
-                  {totalCount} recipients ready for bulk generation
+          {/* Recipient Count & Active Template Summary Card */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-brand-600 font-bold shadow-2xs">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-700">Spreadsheet Recipient Roster</div>
+                  <div className="text-[11px] text-slate-500">
+                    {totalCount} recipients ready for bulk generation
+                  </div>
                 </div>
               </div>
+              <div className="text-right">
+                <span className="text-xl font-bold text-slate-900">{totalCount}</span>
+                <span className="text-xs text-slate-400 ml-1">Certificates</span>
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-xl font-bold text-slate-900">{totalCount}</span>
-              <span className="text-xs text-slate-400 ml-1">Certificates</span>
-            </div>
+
+            {activeTemplate && (
+              <div className="flex items-center justify-between px-3.5 py-2 bg-indigo-50/60 border border-indigo-100 rounded-lg text-xs">
+                <span className="text-slate-600 font-medium">Selected Template:</span>
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-slate-800">{activeTemplate.name}</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    activeTemplate.background_asset_url 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {activeTemplate.background_asset_url ? 'Uploaded Artwork' : 'Default Preset'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Select Output Format */}

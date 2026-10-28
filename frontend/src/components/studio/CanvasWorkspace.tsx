@@ -96,7 +96,8 @@ export const CanvasWorkspace: React.FC = () => {
   const { 
     activeTemplate, templates, selectTemplate, duplicateTemplate, 
     deleteTemplate, setTemplateGalleryOpen, recipients, 
-    activeRecipientIndex, setActiveRecipientIndex, updateActiveRecipientData 
+    activeRecipientIndex, setActiveRecipientIndex, updateActiveRecipientData,
+    cleanTemplateForArtwork
   } = useProjectStore();
   const { 
     zoom, setZoom, selectedElementId, setSelectedElementId,
@@ -464,8 +465,8 @@ export const CanvasWorkspace: React.FC = () => {
             </button>
           )}
 
-          {/* Template Switcher Dropdown */}
-          <div className="relative">
+          {/* Template Switcher Dropdown & Mode Indicator */}
+          <div className="relative flex items-center space-x-1.5">
             <button
               onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
               className="px-2 sm:px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 rounded text-[11px] font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors max-w-[140px] sm:max-w-[210px]"
@@ -476,73 +477,165 @@ export const CanvasWorkspace: React.FC = () => {
               <ChevronDown className="h-3 w-3 text-slate-400 flex-shrink-0 ml-0.5" />
             </button>
 
+            {/* Template Mode Badge & Clean Overlays Shortcut */}
+            {activeTemplate?.background_asset_url ? (
+              <div className="flex items-center space-x-1">
+                <span className="hidden sm:inline-block px-1.5 py-0.5 bg-purple-100 text-purple-700 border border-purple-200 rounded text-[10px] font-bold">
+                  Uploaded Artwork
+                </span>
+                <button
+                  onClick={() => cleanTemplateForArtwork(activeTemplate.id)}
+                  className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded text-[11px] font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+                  title="Remove old preset text/fonts that overlay your uploaded certificate artwork"
+                >
+                  <Sparkles className="h-3 w-3 text-purple-600" />
+                  <span className="hidden md:inline">Clean Overlays</span>
+                </button>
+              </div>
+            ) : (
+              <span className="hidden sm:inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold">
+                Default Preset
+              </span>
+            )}
+
             {isTemplateDropdownOpen && (
               <>
                 <div
                   className="fixed inset-0 z-30"
                   onClick={() => setIsTemplateDropdownOpen(false)}
                 />
-                <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute left-0 top-full mt-1.5 w-80 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
                   <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <span>Project Templates</span>
                     <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono">{templates.length}</span>
                   </div>
-                  <div className="max-h-60 overflow-y-auto py-1 divide-y divide-slate-50">
-                    {templates.map((tpl) => {
-                      const isActive = activeTemplate?.id === tpl.id;
-                      return (
-                        <div
-                          key={tpl.id}
-                          className={`px-3 py-2 flex items-center justify-between text-xs cursor-pointer group transition-colors ${
-                            isActive ? 'bg-brand-50/70 text-brand-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                          }`}
-                          onClick={() => {
-                            selectTemplate(tpl.id);
-                            setIsTemplateDropdownOpen(false);
-                          }}
-                        >
-                          <div className="flex items-center space-x-2 truncate pr-2">
-                            {isActive ? (
-                              <Check className="h-3.5 w-3.5 text-brand-600 flex-shrink-0 stroke-[2.5]" />
-                            ) : (
-                              <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex-shrink-0" />
-                            )}
-                            <div className="truncate">
-                              <div className="truncate text-[11px] leading-tight">{tpl.name}</div>
-                              <div className="text-[9px] text-slate-400 font-normal mt-0.5">
-                                {tpl.page_format.replace('_', ' ')} • {tpl.elements?.length || 0} elements
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={async () => {
-                                await duplicateTemplate(tpl.id);
+                  
+                  <div className="max-h-72 overflow-y-auto py-1 divide-y divide-slate-100">
+                    {/* Section 1: Uploaded Artwork */}
+                    {templates.filter(t => !!t.background_asset_url).length > 0 && (
+                      <div className="py-1">
+                        <div className="px-3 py-1 text-[10px] font-bold text-purple-700 uppercase tracking-wider bg-purple-50/50">
+                          Uploaded Artwork Designs
+                        </div>
+                        {templates.filter(t => !!t.background_asset_url).map((tpl) => {
+                          const isActive = activeTemplate?.id === tpl.id;
+                          return (
+                            <div
+                              key={tpl.id}
+                              className={`px-3 py-2 flex items-center justify-between text-xs cursor-pointer group transition-colors ${
+                                isActive ? 'bg-purple-50 text-purple-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                              onClick={() => {
+                                selectTemplate(tpl.id);
                                 setIsTemplateDropdownOpen(false);
                               }}
-                              className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200"
-                              title="Duplicate template"
                             >
-                              <Copy className="h-3 w-3" />
-                            </button>
-                            {templates.length > 1 && (
+                              <div className="flex items-center space-x-2 truncate pr-2">
+                                {isActive ? (
+                                  <Check className="h-3.5 w-3.5 text-purple-600 flex-shrink-0 stroke-[2.5]" />
+                                ) : (
+                                  <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex-shrink-0" />
+                                )}
+                                <div className="truncate">
+                                  <div className="truncate text-[11px] leading-tight">{tpl.name}</div>
+                                  <div className="text-[9px] text-purple-600/70 font-normal mt-0.5">
+                                    Custom Artwork • {tpl.elements?.length || 0} dynamic fields
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={async () => {
+                                    await duplicateTemplate(tpl.id);
+                                    setIsTemplateDropdownOpen(false);
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+                                  title="Duplicate template"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                                {templates.length > 1 && (
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm(`Delete template "${tpl.name}"?`)) {
+                                        await deleteTemplate(tpl.id);
+                                      }
+                                    }}
+                                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                    title="Delete template"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Section 2: Default Presets */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-50">
+                        Default Presets
+                      </div>
+                      {templates.filter(t => !t.background_asset_url).map((tpl) => {
+                        const isActive = activeTemplate?.id === tpl.id;
+                        return (
+                          <div
+                            key={tpl.id}
+                            className={`px-3 py-2 flex items-center justify-between text-xs cursor-pointer group transition-colors ${
+                              isActive ? 'bg-brand-50/70 text-brand-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                            onClick={() => {
+                              selectTemplate(tpl.id);
+                              setIsTemplateDropdownOpen(false);
+                            }}
+                          >
+                            <div className="flex items-center space-x-2 truncate pr-2">
+                              {isActive ? (
+                                <Check className="h-3.5 w-3.5 text-brand-600 flex-shrink-0 stroke-[2.5]" />
+                              ) : (
+                                <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex-shrink-0" />
+                              )}
+                              <div className="truncate">
+                                <div className="truncate text-[11px] leading-tight">{tpl.name}</div>
+                                <div className="text-[9px] text-slate-400 font-normal mt-0.5">
+                                  {tpl.page_format.replace('_', ' ')} • {tpl.elements?.length || 0} elements
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={async () => {
-                                  if (confirm(`Delete template "${tpl.name}"?`)) {
-                                    await deleteTemplate(tpl.id);
-                                  }
+                                  await duplicateTemplate(tpl.id);
+                                  setIsTemplateDropdownOpen(false);
                                 }}
-                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                                title="Delete template"
+                                className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+                                title="Duplicate template"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Copy className="h-3 w-3" />
                               </button>
-                            )}
+                              {templates.length > 1 && (
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Delete template "${tpl.name}"?`)) {
+                                      await deleteTemplate(tpl.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                  title="Delete template"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
+                  
                   <div className="border-t border-slate-100 p-2">
                     <button
                       onClick={() => {

@@ -40,6 +40,10 @@ export const api = {
     request<{ success: boolean; message: string }>(`/templates/${templateId}`, { method: 'DELETE' }),
   loadPreset: (templateId: string, preset: string) =>
     request<CertificateTemplate>(`/templates/${templateId}/load-preset`, { method: 'POST', body: JSON.stringify({ preset }) }),
+  activateTemplate: (templateId: string) =>
+    request<CertificateTemplate>(`/templates/${templateId}/activate`, { method: 'POST' }),
+  cleanTemplateForArtwork: (templateId: string) =>
+    request<CertificateTemplate>(`/templates/${templateId}/clean-for-artwork`, { method: 'POST' }),
   updateTemplate: (id: string, data: Partial<CertificateTemplate>) => 
     request<CertificateTemplate>(`/templates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   batchSyncElements: (templateId: string, elements: CanvasElement[]) => 
@@ -95,9 +99,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ rows, column_mapping, clear_existing })
     }),
-  getBulkPdfUrl: (projectId: string) => `/api/v1/projects/${projectId}/export/bulk-pdf`,
-  getBulkZipUrl: (projectId: string) => `/api/v1/projects/${projectId}/export/bulk-zip`,
-  getBulkPngUrl: (projectId: string) => `/api/v1/projects/${projectId}/export/bulk-png`,
+  getBulkPdfUrl: (projectId: string, templateId?: string) => 
+    `/api/v1/projects/${projectId}/export/bulk-pdf${templateId ? `?template_id=${templateId}` : ''}`,
+  getBulkZipUrl: (projectId: string, templateId?: string) => 
+    `/api/v1/projects/${projectId}/export/bulk-zip${templateId ? `?template_id=${templateId}` : ''}`,
+  getBulkPngUrl: (projectId: string, templateId?: string) => 
+    `/api/v1/projects/${projectId}/export/bulk-png${templateId ? `?template_id=${templateId}` : ''}`,
 
   // Signatures
   getSignatures: () => request<SignatureAsset[]>('/signatures'),
@@ -122,10 +129,10 @@ export const api = {
     body: JSON.stringify(payload)
   }),
   runPreflight: (projectId: string) => request<PreflightReport>(`/projects/${projectId}/preflight`, { method: 'POST' }),
-  createIssuanceJob: (projectId: string, output_mode: string) => 
+  createIssuanceJob: (projectId: string, output_mode: string, template_id?: string) => 
     request<IssuanceJob>(`/projects/${projectId}/issuance/jobs`, {
       method: 'POST',
-      body: JSON.stringify({ output_mode })
+      body: JSON.stringify({ output_mode, template_id })
     }),
   getIssuanceJob: (jobId: string) => request<IssuanceJob>(`/issuance/jobs/${jobId}`),
 

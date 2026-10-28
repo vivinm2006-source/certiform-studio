@@ -99,16 +99,22 @@ def get_preset_template_data(preset_key: str, template_id: str) -> tuple[str, st
             CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#94A3B8", border_width=1.0, layer_order=14),
             CanvasElement(template_id=template_id, element_type="static_text", content="Elena Rostova\nLead Instructor", font_family="Montserrat", font_size=9, color="#475569", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=15)
         ]
+    elif preset_key in ("uploaded", "custom", "custom_artwork"):
+        name = "Custom Uploaded Artwork Template"
+        bg_color = None
+        elements = [
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Recipient Name", binding_key="recipient_name", font_family="Playfair Display", font_size=38, font_weight="bold", color="#0F2841", text_align="center", auto_fit_text=True, x=0.10, y=0.44, width=0.80, height=0.12, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.82, y=0.74, width=0.09, height=0.12, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="ID: {{certificate_id}}", binding_key="certificate_id", font_family="Montserrat", font_size=7.5, color="#64748B", text_align="center", x=0.78, y=0.87, width=0.17, height=0.04, layer_order=2)
+        ]
     elif preset_key == "blank":
         name = "Blank Certificate Canvas"
         bg_color = "#FFFFFF"
         elements = [
-            CanvasElement(template_id=template_id, element_type="static_text", content="CERTIFICATE OF PARTICIPATION", font_family="Montserrat", font_size=28, font_weight="bold", color="#0F172A", uppercase=True, text_align="center", x=0.1, y=0.18, width=0.8, height=0.08, layer_order=0),
-            CanvasElement(template_id=template_id, element_type="static_text", content="PROUDLY PRESENTED TO", font_family="Montserrat", font_size=10, font_weight="normal", color="#64748B", letter_spacing=2.0, uppercase=True, text_align="center", x=0.2, y=0.28, width=0.6, height=0.035, layer_order=1),
-            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Ananya Kumar", binding_key="recipient_name", font_family="Playfair Display", font_size=36, font_weight="bold", color="#0F172A", text_align="center", auto_fit_text=True, x=0.1, y=0.33, width=0.8, height=0.10, layer_order=2),
-            CanvasElement(template_id=template_id, element_type="dynamic_text", content="for attending and contributing to {{event_name}} on {{event_date}}.", font_family="Montserrat", font_size=12, color="#334155", text_align="center", line_height=1.5, x=0.15, y=0.46, width=0.7, height=0.08, layer_order=3),
-            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.62, width=0.10, height=0.13, layer_order=4),
-            CanvasElement(template_id=template_id, element_type="dynamic_text", content="ID: {{certificate_id}}\nVerify at certiform.example/verify", font_family="Montserrat", font_size=7.5, color="#64748B", text_align="center", x=0.35, y=0.77, width=0.30, height=0.05, layer_order=5)
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Recipient Name", binding_key="recipient_name", font_family="Playfair Display", font_size=38, font_weight="bold", color="#0F172A", text_align="center", auto_fit_text=True, x=0.1, y=0.36, width=0.8, height=0.10, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="for distinguished completion of {{event_name}} on {{event_date}}.", font_family="Montserrat", font_size=12, color="#334155", text_align="center", line_height=1.5, x=0.15, y=0.50, width=0.7, height=0.08, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.66, width=0.10, height=0.13, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="ID: {{certificate_id}}\nVerify at certiform.example/verify", font_family="Montserrat", font_size=7.5, color="#64748B", text_align="center", x=0.35, y=0.81, width=0.30, height=0.05, layer_order=3)
         ]
     else: # Classic Academic Honors default
         name = "Classic Academic Honors"
@@ -149,6 +155,12 @@ def create_template(project_id: str, data: CertificateTemplateCreate, db: Sessio
     tpl_bg = data.background_color
     preset_key = getattr(data, "preset", None)
     
+    # If custom artwork is uploaded and no explicit preset chosen, use clean uploaded artwork preset
+    if data.background_asset_url and (not preset_key or preset_key in ("blank", "default", "academic")):
+        preset_key = "uploaded"
+        if not tpl_bg or tpl_bg == "#FFFFFF":
+            tpl_bg = None
+    
     tpl = CertificateTemplate(
         project_id=project_id,
         name=tpl_name,
@@ -162,11 +174,18 @@ def create_template(project_id: str, data: CertificateTemplateCreate, db: Sessio
     db.add(tpl)
     db.flush()
     
-    # Initialize elements from preset or default starter elements
+    # If this new template is active, deactivate others in this project
+    if tpl.is_active:
+        db.query(CertificateTemplate).filter(
+            CertificateTemplate.project_id == project_id,
+            CertificateTemplate.id != tpl.id
+        ).update({"is_active": False})
+    
+    # Initialize elements from preset or clean uploaded elements
     preset_name, default_bg, preset_elements = get_preset_template_data(preset_key or "academic", tpl.id)
     if data.name == "Default Certificate Template":
         tpl.name = preset_name
-    if not data.background_color or data.background_color == "#FFFFFF":
+    if tpl.background_color is None and default_bg:
         tpl.background_color = default_bg
         
     for el in preset_elements:
@@ -175,6 +194,110 @@ def create_template(project_id: str, data: CertificateTemplateCreate, db: Sessio
     db.commit()
     fresh_tpl = db.query(CertificateTemplate).filter(CertificateTemplate.id == tpl.id).first()
     return fresh_tpl
+
+@router.post("/templates/{template_id}/activate", response_model=CertificateTemplateOut)
+def activate_template(template_id: str, db: Session = Depends(get_db)):
+    """Set template as the active certificate template for the project."""
+    tpl = db.query(CertificateTemplate).filter(CertificateTemplate.id == template_id).first()
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    db.query(CertificateTemplate).filter(
+        CertificateTemplate.project_id == tpl.project_id
+    ).update({"is_active": False})
+    
+    tpl.is_active = True
+    db.commit()
+    db.refresh(tpl)
+    return tpl
+
+@router.post("/templates/{template_id}/clean-for-artwork", response_model=CertificateTemplateOut)
+def clean_template_for_artwork(template_id: str, db: Session = Depends(get_db)):
+    """
+    Remove all old static text, shapes, borders, and preset background colors that overlay
+    custom uploaded certificate artwork, retaining only the clean dynamic Recipient Name,
+    QR code, and Credential ID.
+    """
+    tpl = db.query(CertificateTemplate).filter(CertificateTemplate.id == template_id).first()
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    # Clear canvas background color so custom artwork is completely visible
+    tpl.background_color = None
+    tpl.preset = "uploaded"
+    
+    # Delete all static elements and shapes (static titles, citations, borders, lines, signatures)
+    for el in list(tpl.elements):
+        if el.element_type in ("shape", "static_text"):
+            db.delete(el)
+            
+    # Check if a dynamic_text for recipient_name exists
+    name_el = next((el for el in tpl.elements if el.element_type == "dynamic_text" and el.binding_key in ("recipient_name", "name", "full_name")), None)
+    if not name_el:
+        name_el = CanvasElement(
+            template_id=tpl.id,
+            element_type="dynamic_text",
+            content="Recipient Name",
+            binding_key="recipient_name",
+            font_family="Playfair Display",
+            font_size=38,
+            font_weight="bold",
+            color="#0F2841",
+            text_align="center",
+            auto_fit_text=True,
+            x=0.10,
+            y=0.44,
+            width=0.80,
+            height=0.12,
+            layer_order=0
+        )
+        db.add(name_el)
+    else:
+        # Ensure name is prominent and auto-fitting
+        name_el.auto_fit_text = True
+        name_el.x = 0.10
+        name_el.y = 0.44
+        name_el.width = 0.80
+        name_el.height = 0.12
+        name_el.text_align = "center"
+
+    # Check if a QR code exists
+    qr_el = next((el for el in tpl.elements if el.element_type == "qr_code"), None)
+    if not qr_el:
+        qr_el = CanvasElement(
+            template_id=tpl.id,
+            element_type="qr_code",
+            x=0.82,
+            y=0.74,
+            width=0.09,
+            height=0.12,
+            layer_order=1
+        )
+        db.add(qr_el)
+
+    # Check if credential ID exists
+    id_el = next((el for el in tpl.elements if el.element_type == "dynamic_text" and el.binding_key in ("certificate_id", "credential_id")), None)
+    if not id_el:
+        id_el = CanvasElement(
+            template_id=tpl.id,
+            element_type="dynamic_text",
+            content="ID: {{certificate_id}}",
+            binding_key="certificate_id",
+            font_family="Montserrat",
+            font_size=7.5,
+            color="#64748B",
+            text_align="center",
+            x=0.78,
+            y=0.87,
+            width=0.17,
+            height=0.04,
+            layer_order=2
+        )
+        db.add(id_el)
+        
+    db.commit()
+    db.refresh(tpl)
+    return tpl
 
 @router.get("/templates/{template_id}", response_model=CertificateTemplateOut)
 def get_template(template_id: str, db: Session = Depends(get_db)):

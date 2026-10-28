@@ -233,6 +233,7 @@ class IssuanceJob(Base):
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    template_id = Column(String(36), ForeignKey("certificate_templates.id"), nullable=True)
     output_mode = Column(String(50), default="zip_pdf") # single_pdf, single_png, zip_pdf, zip_png, consolidated_pdf
     status = Column(String(50), default="queued") # queued, processing, completed, failed, cancelled
     total_count = Column(Integer, default=0)

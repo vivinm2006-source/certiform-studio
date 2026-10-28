@@ -23,6 +23,7 @@ interface ProjectState {
   createTemplate: (data: Partial<CertificateTemplate> & { preset?: string }) => Promise<CertificateTemplate>;
   duplicateTemplate: (templateId: string) => Promise<CertificateTemplate>;
   deleteTemplate: (templateId: string) => Promise<void>;
+  cleanTemplateForArtwork: (templateId: string) => Promise<void>;
   refreshTemplates: () => Promise<void>;
   setActiveRecipientIndex: (index: number) => void;
   updateActiveRecipientData: (key: string, value: any) => Promise<void>;
@@ -89,15 +90,34 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectTemplate: async (templateId: string) => {
     set({ isLoading: true });
     try {
-      const tpl = await api.getTemplate(templateId);
-      set({ activeTemplate: tpl, isLoading: false });
+      // Activate on backend so serverless exports and issuance use this template
+      const tpl = await api.activateTemplate(templateId);
+      const updatedList = get().templates.map(t => ({
+        ...t,
+        is_active: t.id === templateId
+      }));
+      set({ activeTemplate: tpl, templates: updatedList, isLoading: false });
     } catch (err) {
-      console.error('Failed to fetch template detail:', err);
-      const found = get().templates.find(t => t.id === templateId);
-      if (found) {
-        set({ activeTemplate: found });
+      console.warn('Failed to activate on server, falling back to local select:', err);
+      try {
+        const tpl = await api.getTemplate(templateId);
+        set({ activeTemplate: tpl, isLoading: false });
+      } catch (innerErr) {
+        const found = get().templates.find(t => t.id === templateId);
+        if (found) set({ activeTemplate: found });
+        set({ isLoading: false });
       }
-      set({ isLoading: false });
+    }
+  },
+
+  cleanTemplateForArtwork: async (templateId: string) => {
+    try {
+      const cleaned = await api.cleanTemplateForArtwork(templateId);
+      const { templates } = get();
+      const updatedList = templates.map(t => t.id === templateId ? cleaned : t);
+      set({ activeTemplate: cleaned, templates: updatedList });
+    } catch (err) {
+      console.error('Failed to clean template overlays:', err);
     }
   },
 

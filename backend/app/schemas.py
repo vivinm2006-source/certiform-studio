@@ -283,6 +283,7 @@ class IssuanceJobCreate(BaseModel):
 class IssuanceJobOut(BaseModel):
     id: str
     project_id: str
+    template_id: Optional[str] = None
     output_mode: str
     status: str
     total_count: int
