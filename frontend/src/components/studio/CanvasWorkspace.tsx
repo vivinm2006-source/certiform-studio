@@ -139,7 +139,17 @@ export const CanvasWorkspace: React.FC = () => {
   // Keyboard navigation & nudging
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (editingElementId || !selectedElementId) return;
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      if (
+        editingElementId || 
+        !selectedElementId || 
+        activeTag === 'input' || 
+        activeTag === 'textarea' || 
+        activeTag === 'select' || 
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
       const el = (activeTemplate?.elements || []).find((el) => el.id === selectedElementId);
       if (!el || el.is_locked) return;
 
@@ -769,8 +779,9 @@ export const CanvasWorkspace: React.FC = () => {
               const justifyClass = el.vertical_align === 'top' ? 'justify-start' : el.vertical_align === 'bottom' ? 'justify-end' : 'justify-center';
               const alignClass = el.text_align === 'left' ? 'items-start text-left' : el.text_align === 'right' ? 'items-end text-right' : 'items-center text-center';
 
+              const activeCredId = `CERT-2026-${(activeRecipientIndex + 1).toString().padStart(6, '0')}`;
               if (el.element_type === 'dynamic_text') {
-                const textVal = resolveDynamicValue(el.binding_key, el.content, recData, 'CERT-2026-000125');
+                const textVal = resolveDynamicValue(el.binding_key, el.content, recData, activeCredId);
 
                 const scaledFont = Math.max(8, el.font_size * zoom * (baseWidthPx / 841.89));
 
@@ -796,7 +807,7 @@ export const CanvasWorkspace: React.FC = () => {
                   </div>
                 );
               } else if (el.element_type === 'static_text') {
-                const textVal = resolveText(el.content, recData);
+                const textVal = resolveText(el.content, recData, activeCredId);
                 const scaledFont = Math.max(8, el.font_size * zoom * (baseWidthPx / 841.89));
 
                 renderedContent = (

@@ -119,7 +119,15 @@ def parse_csv_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, A
     if not rows:
         return [], []
         
-    headers = [h.strip() for h in rows[0] if h.strip()]
+    raw_headers = rows[0]
+    last_col = -1
+    for i, h in enumerate(raw_headers):
+        if h and h.strip():
+            last_col = i
+    if last_col == -1:
+        return [], []
+        
+    headers = [raw_headers[i].strip() if i < len(raw_headers) and raw_headers[i].strip() else f"Column_{i+1}" for i in range(last_col + 1)]
     data_rows = []
     
     for row_vals in rows[1:]:
@@ -143,7 +151,13 @@ def parse_xlsx_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, 
     
     for row_idx, row in enumerate(sheet.iter_rows(values_only=True)):
         if row_idx == 0:
-            headers = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+            last_col = -1
+            for i, cell in enumerate(row):
+                if cell is not None and str(cell).strip():
+                    last_col = i
+            if last_col == -1:
+                return [], []
+            headers = [str(row[i]).strip() if i < len(row) and row[i] is not None and str(row[i]).strip() else f"Column_{i+1}" for i in range(last_col + 1)]
         else:
             if not any(cell is not None and str(cell).strip() != "" for cell in row):
                 continue
