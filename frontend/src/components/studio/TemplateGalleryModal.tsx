@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { 
   LayoutTemplate, Plus, Upload, Check, Sparkles, 
   Award, GraduationCap, Briefcase, Code, Heart, 
-  CheckCircle2, X, FileImage, Copy, Eye
+  CheckCircle2, X, FileImage, Copy, Eye,
+  Activity, Cpu, Crown, Scale, Atom, Trophy, Palette
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { api } from '../../services/api';
@@ -14,7 +15,7 @@ interface TemplateGalleryModalProps {
 
 interface PresetOption {
   id: string;
-  category: 'academic' | 'executive' | 'tech' | 'appreciation' | 'completion' | 'blank';
+  category: 'academic' | 'executive' | 'tech' | 'science' | 'healthcare' | 'creative' | 'blank';
   title: string;
   description: string;
   previewBg: string;
@@ -27,6 +28,7 @@ interface PresetOption {
 export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOpen, onClose }) => {
   const { currentProject, createTemplate, selectTemplate, templates } = useProjectStore();
   const [selectedPreset, setSelectedPreset] = useState<string>('academic');
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [templateName, setTemplateName] = useState('');
   const [pageFormat, setPageFormat] = useState('A4_LANDSCAPE');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,8 +72,63 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
       icon: Code,
     },
     {
+      id: 'medical',
+      category: 'healthcare',
+      title: 'Medical & Clinical Fellowship',
+      description: 'Distinguished deep teal accents, healthcare board accreditation citation, and clinical credential ID for medical institutions.',
+      previewBg: '#F0FDFA',
+      accentColor: '#0D9488',
+      borderStyle: 'border-teal-600',
+      badgeText: 'Healthcare & Medicine',
+      icon: Activity,
+    },
+    {
+      id: 'cyber_hackathon',
+      category: 'tech',
+      title: 'AI Hackathon & Cyber Champion',
+      description: 'Sleek obsidian dark-mode certificate with neon cyan accents, neural systems styling, and high-tech championship honors.',
+      previewBg: '#0B0F17',
+      accentColor: '#06B6D4',
+      borderStyle: 'border-cyan-500',
+      badgeText: 'AI & Dark Mode',
+      icon: Cpu,
+    },
+    {
+      id: 'corporate_leadership',
+      category: 'executive',
+      title: 'President\'s Leadership Award',
+      description: 'Luxury champagne rose aesthetic with executive typography, honoring visionary corporate leadership and impact.',
+      previewBg: '#FFF1F2',
+      accentColor: '#BE185D',
+      borderStyle: 'border-rose-600',
+      badgeText: 'Executive & CEO Award',
+      icon: Crown,
+    },
+    {
+      id: 'legal',
+      category: 'academic',
+      title: 'Jurisprudence & Legal Fellowship',
+      description: 'Antique parchment with deep royal navy and bar association gold, crafted for law schools, courts, and legal fellowships.',
+      previewBg: '#FFFDF5',
+      accentColor: '#1E3A8A',
+      borderStyle: 'border-blue-800',
+      badgeText: 'Law & Jurisprudence',
+      icon: Scale,
+    },
+    {
+      id: 'stem_research',
+      category: 'science',
+      title: 'National STEM & Quantum Research',
+      description: 'Precision slate and cobalt blue styling with peer-reviewed discovery citation for laboratories and scientific foundations.',
+      previewBg: '#F8FAFC',
+      accentColor: '#2563EB',
+      borderStyle: 'border-blue-600',
+      badgeText: 'Science & Quantum',
+      icon: Atom,
+    },
+    {
       id: 'appreciation',
-      category: 'appreciation',
+      category: 'executive',
       title: 'Certificate of Appreciation',
       description: 'Distinguished bronze accents and warm parchment for honoring volunteers, keynotes, committee members, and community leaders.',
       previewBg: '#FFFDF7',
@@ -82,7 +139,7 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
     },
     {
       id: 'completion',
-      category: 'completion',
+      category: 'academic',
       title: 'Course Completion & Mastery',
       description: 'Accreditation certificate with deep navy borders, certificate ID watermark, course details, and instructor signature block.',
       previewBg: '#F0F9FF',
@@ -90,6 +147,28 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
       borderStyle: 'border-sky-600',
       badgeText: 'Bootcamps & Workshops',
       icon: Award,
+    },
+    {
+      id: 'sports',
+      category: 'creative',
+      title: 'Athletic Tournament & Gold Medalist',
+      description: 'High-energy crimson and tournament gold aesthetic celebrating sports championships, athletic endurance, and podium finishes.',
+      previewBg: '#FFF7ED',
+      accentColor: '#DC2626',
+      borderStyle: 'border-red-600',
+      badgeText: 'Sports & Athletics',
+      icon: Trophy,
+    },
+    {
+      id: 'minimal_modern',
+      category: 'creative',
+      title: 'Minimalist Studio & Design Honors',
+      description: 'Sophisticated Swiss monochrome typography with high-fashion spacing, ideal for architecture, art, and design agencies.',
+      previewBg: '#FFFFFF',
+      accentColor: '#18181B',
+      borderStyle: 'border-zinc-800',
+      badgeText: 'Design & Architecture',
+      icon: Palette,
     },
     {
       id: 'blank',
@@ -246,16 +325,44 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
 
           {/* TEMPLATE GALLERY GRID */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-brand-600" />
                 <span>Select from Built-in Professional Presets</span>
               </h3>
-              <span className="text-[11px] text-slate-400 font-medium">6 Presets Available</span>
+              <span className="text-[11px] text-slate-400 font-medium">{presets.length} Professional Presets Available</span>
+            </div>
+
+            {/* Category Filter Chips */}
+            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs">
+              {[
+                { id: 'all', label: `All (${presets.length})` },
+                { id: 'academic', label: 'Academic & Law' },
+                { id: 'executive', label: 'Corporate & Executive' },
+                { id: 'tech', label: 'AI & Hackathons' },
+                { id: 'healthcare', label: 'Healthcare & Medical' },
+                { id: 'science', label: 'STEM & Quantum' },
+                { id: 'creative', label: 'Creative & Sports' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setSelectedFilter(f.id)}
+                  className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-colors text-[11px] ${
+                    selectedFilter === f.id
+                      ? 'bg-brand-600 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-800'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {presets.map((preset) => {
+              {presets
+                .filter(p => selectedFilter === 'all' || p.category === selectedFilter)
+                .map((preset) => {
                 const Icon = preset.icon;
                 const isSelected = selectedPreset === preset.id;
                 return (

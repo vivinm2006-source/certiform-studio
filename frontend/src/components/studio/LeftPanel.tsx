@@ -550,16 +550,26 @@ export const LeftPanel: React.FC = () => {
 
                 {/* Apply Design Presets */}
                 <div>
-                  <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Change Preset Style
-                  </h4>
-                  <div className="space-y-1.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Change Preset Style
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-medium">12 Styles</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                     {[
                       { key: 'academic', title: 'Classic Academic Honors', desc: 'Gold borders & Cinzel serif' },
                       { key: 'executive', title: 'Modern Executive Diploma', desc: 'Emerald geometric accents' },
                       { key: 'tech', title: 'Innovation & Tech Summit', desc: 'Indigo styling & verification QR' },
-                      { key: 'appreciation', title: 'Certificate of Appreciation', desc: 'Warm bronze citation' },
-                      { key: 'completion', title: 'Course Completion & Mastery', desc: 'Accreditation ribbon' },
+                      { key: 'medical', title: 'Medical & Clinical Fellowship', desc: 'Teal borders & clinical accreditation' },
+                      { key: 'cyber_hackathon', title: 'AI Hackathon & Cyber Champion', desc: 'Obsidian dark mode & neon cyan' },
+                      { key: 'corporate_leadership', title: 'President\'s Leadership Award', desc: 'Rose gold champagne & CEO award' },
+                      { key: 'legal', title: 'Jurisprudence & Legal Fellowship', desc: 'Royal navy & bar association gold' },
+                      { key: 'stem_research', title: 'National STEM & Quantum', desc: 'Cobalt blue & scientific review' },
+                      { key: 'appreciation', title: 'Certificate of Appreciation', desc: 'Warm bronze citation & gratitude' },
+                      { key: 'completion', title: 'Course Completion & Mastery', desc: 'Sky blue accreditation ribbon' },
+                      { key: 'sports', title: 'Sports & Athletic Champion', desc: 'Crimson & tournament gold medalist' },
+                      { key: 'minimal_modern', title: 'Minimalist Studio & Design', desc: 'Swiss monochrome & architecture' },
                     ].map((preset) => (
                       <button
                         key={preset.key}
