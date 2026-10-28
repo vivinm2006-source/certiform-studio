@@ -42,10 +42,11 @@ export const CanvasOverlayInput: React.FC<CanvasOverlayInputProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newVal = e.target.value;
     setVal(newVal);
+    // Always persist edited content to the template element
+    updateElementProps(element.id, { content: newVal });
+    // If bound to recipient data, update current recipient field as well
     if (bKey) {
       updateActiveRecipientData(bKey, newVal);
-    } else {
-      updateElementProps(element.id, { content: newVal });
     }
   };
 

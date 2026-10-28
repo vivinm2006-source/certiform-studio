@@ -18,6 +18,13 @@ def sanitize_text_for_pdf(text: str) -> str:
     """
     if not text:
         return ""
+
+    # Normalize typographic quotes, dashes, and symbols to standard Latin-1 ASCII
+    text = text.replace("“", '"').replace("”", '"')
+    text = text.replace("‘", "'").replace("’", "'")
+    text = text.replace("—", " - ").replace("–", "-")
+    text = text.replace("•", "*").replace("…", "...")
+    
     try:
         text.encode("latin-1")
         return text
@@ -33,6 +40,9 @@ def sanitize_text_for_pdf(text: str) -> str:
                 elif ch == 'đ': result.append('d')
                 elif ch == 'Đ': result.append('D')
                 elif ch in ('ø', 'Ø'): result.append('o' if ch == 'ø' else 'O')
+                elif ch in ('“', '”'): result.append('"')
+                elif ch in ('‘', '’'): result.append("'")
+                elif ch in ('—', '–'): result.append('-')
                 else:
                     decomposed = unicodedata.normalize('NFKD', ch)
                     base = ''.join(c for c in decomposed if not unicodedata.combining(c))

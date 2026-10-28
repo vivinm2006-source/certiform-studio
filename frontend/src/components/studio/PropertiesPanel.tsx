@@ -150,16 +150,31 @@ export const PropertiesPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Text Content (if static text or unlinked formula) */}
-        {selectedEl.element_type === 'static_text' && (
+        {/* Text Content (for both static text and dynamic variables) */}
+        {(selectedEl.element_type === 'static_text' || selectedEl.element_type === 'dynamic_text') && (
           <div className="space-y-1.5">
-            <label className="font-bold text-slate-800 text-[11px]">Text Content</label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-800 text-[11px]">
+                {selectedEl.element_type === 'dynamic_text' ? 'Text / Fallback Content' : 'Text Content'}
+              </label>
+              {selectedEl.element_type === 'dynamic_text' && selectedEl.binding_key && (
+                <span className="text-[10px] text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded font-mono font-medium">
+                  {`{{${selectedEl.binding_key}}}`}
+                </span>
+              )}
+            </div>
             <textarea
               rows={3}
               value={selectedEl.content || ''}
-              onChange={(e) => updateElementProps(selectedEl.id, { content: e.target.value })}
-              className="w-full border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 outline-none focus:border-brand-500 leading-normal"
-              placeholder="Enter text..."
+              onChange={(e) => {
+                const newContent = e.target.value;
+                updateElementProps(selectedEl.id, { content: newContent });
+                if (selectedEl.binding_key) {
+                  useProjectStore.getState().updateActiveRecipientData(selectedEl.binding_key, newContent);
+                }
+              }}
+              className="w-full border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 outline-none focus:border-brand-500 leading-normal shadow-2xs"
+              placeholder="Enter text or {{variable}} formula..."
             />
           </div>
         )}
