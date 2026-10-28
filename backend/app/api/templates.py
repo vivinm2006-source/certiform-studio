@@ -18,6 +18,12 @@ router = APIRouter(tags=["Templates"])
 def get_vanexa_artwork_data_url() -> Optional[str]:
     """Helper to return base64 Data URL for the official Vanexa certificate artwork."""
     try:
+        from app.assets.vanexa_artwork import VANEXA_ARTWORK_DATA_URL
+        if VANEXA_ARTWORK_DATA_URL:
+            return VANEXA_ARTWORK_DATA_URL
+    except Exception:
+        pass
+    try:
         path = settings.STORAGE_DIR / "templates" / "vanexa_participation_artwork.jpg"
         if path.exists():
             encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
