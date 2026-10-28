@@ -198,11 +198,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   refreshRecipients: async () => {
-    const { currentProject } = get();
+    const { currentProject, activeRecipientIndex } = get();
     if (!currentProject) return;
     try {
       const resp = await api.getRecipients(currentProject.id, 1, 100);
-      set({ recipients: resp.items });
+      const newItems = resp.items || [];
+      const nextIndex = activeRecipientIndex >= newItems.length ? 0 : activeRecipientIndex;
+      set({ recipients: newItems, activeRecipientIndex: nextIndex });
     } catch (err) {
       console.error('Failed to refresh recipients:', err);
     }

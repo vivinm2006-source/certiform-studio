@@ -142,17 +142,70 @@ async def parse_spreadsheet_file(project_id: str, file: UploadFile = File(...), 
 @router.post("/projects/{project_id}/recipients/import")
 def execute_import(project_id: str, payload: BulkImportRequest, db: Session = Depends(get_db)):
     """Import mapped spreadsheet rows into project recipients table."""
-    mapping = payload.column_mapping
-    rows = payload.rows
+    mapping = payload.column_mapping or {}
+    rows = payload.rows or []
+    
+    if not rows:
+        raise HTTPException(status_code=400, detail="No rows provided for import")
+
+    # If clear_existing is requested or sample recipient exists, clean up
+    if payload.clear_existing:
+        db.query(Recipient).filter(Recipient.project_id == project_id).delete()
+        db.flush()
+    else:
+        # Remove sample pre-seeded recipient ("Ananya Kumar") so user's real data takes precedence
+        sample_recipients = db.query(Recipient).filter(Recipient.project_id == project_id).all()
+        for sr in sample_recipients:
+            sr_data = sr.data or {}
+            if sr_data.get("recipient_name") == "Ananya Kumar" or sr_data.get("email") == "ananya@example.com":
+                db.delete(sr)
+        db.flush()
     
     created_recipients = []
     for r in rows:
+        # 1. Retain all raw spreadsheet columns
         mapped_data = {}
+        for col_name, col_val in r.items():
+            if col_val is not None:
+                val_str = str(col_val).strip()
+                mapped_data[col_name] = val_str
+                mapped_data[col_name.lower()] = val_str
+                mapped_data[col_name.lower().replace(" ", "_")] = val_str
+
+        # 2. Apply explicit user column mappings
         for file_col, target_key in mapping.items():
-            if target_key and target_key in r:
-                mapped_data[target_key] = r.get(file_col, "")
-            elif target_key and file_col in r:
-                mapped_data[target_key] = r.get(file_col, "")
+            if target_key:
+                val = r.get(file_col)
+                if val is not None:
+                    val_str = str(val).strip()
+                    mapped_data[target_key] = val_str
+                    mapped_data[target_key.lower()] = val_str
+                    mapped_data[target_key.lower().replace(" ", "_")] = val_str
+
+        # 3. Smart Name Detection & Auto-Aliasing:
+        # Guarantee recipient_name, full_name, and name are ALWAYS populated
+        detected_name = (
+            mapped_data.get("recipient_name") or
+            mapped_data.get("full_name") or
+            mapped_data.get("name") or
+            mapped_data.get("student_name") or
+            mapped_data.get("participant_name") or
+            mapped_data.get("candidate_name") or
+            mapped_data.get("attendee_name") or
+            mapped_data.get("first_name")
+        )
+        
+        # If not matched yet, check any column key that contains 'name'
+        if not detected_name:
+            for k, v in r.items():
+                if "name" in k.lower() and v is not None and str(v).strip():
+                    detected_name = str(v).strip()
+                    break
+
+        if detected_name:
+            mapped_data["recipient_name"] = detected_name
+            mapped_data["name"] = detected_name
+            mapped_data["full_name"] = detected_name
                 
         rec = Recipient(
             project_id=project_id,

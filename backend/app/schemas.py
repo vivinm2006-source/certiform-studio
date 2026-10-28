@@ -212,6 +212,7 @@ class RecipientOut(RecipientBase):
 class BulkImportRequest(BaseModel):
     rows: List[Dict[str, Any]]
     column_mapping: Dict[str, str] # e.g. {"Full Name": "recipient_name", "Email Address": "email"}
+    clear_existing: Optional[bool] = False
 
 # --- Signature Asset ---
 class SignatureAssetBase(BaseModel):

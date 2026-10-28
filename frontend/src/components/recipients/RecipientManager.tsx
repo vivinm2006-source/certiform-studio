@@ -31,6 +31,7 @@ export const RecipientManager: React.FC = () => {
   } | null>(null);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [isImporting, setIsImporting] = useState(false);
+  const [clearExisting, setClearExisting] = useState(true);
 
   // Filtered rows
   const filteredRecipients = recipients.filter((r) => {
@@ -104,11 +105,12 @@ export const RecipientManager: React.FC = () => {
     if (!currentProject || !importPreview) return;
     setIsImporting(true);
     try {
-      await api.importRecipients(currentProject.id, importPreview.raw_rows, columnMapping);
+      await api.importRecipients(currentProject.id, importPreview.raw_rows, columnMapping, clearExisting);
       setIsImporting(false);
       setShowImportModal(false);
       setImportPreview(null);
-      refreshRecipients();
+      await refreshRecipients();
+      setActiveRecipientIndex(0);
     } catch (err: any) {
       setIsImporting(false);
       alert(err.message || 'Import failed');
@@ -357,6 +359,19 @@ export const RecipientManager: React.FC = () => {
                   </select>
                 </div>
               ))}
+            </div>
+
+            {/* Clear existing option */}
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <label className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={clearExisting}
+                  onChange={(e) => setClearExisting(e.target.checked)}
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4"
+                />
+                <span className="font-medium">Replace existing project recipients with this spreadsheet</span>
+              </label>
             </div>
 
             {/* Modal Actions */}

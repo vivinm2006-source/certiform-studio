@@ -14,6 +14,7 @@ export const IssuanceCenter: React.FC = () => {
   const [activeJob, setActiveJob] = useState<IssuanceJob | null>(null);
   const [isSubmittingJob, setIsSubmittingJob] = useState(false);
   const [isDownloadingSingle, setIsDownloadingSingle] = useState(false);
+  const [downloadingMode, setDownloadingMode] = useState<string | null>(null);
 
   const activeRec = recipients[activeRecipientIndex];
   const recData = activeRec?.data || {};
@@ -107,17 +108,48 @@ export const IssuanceCenter: React.FC = () => {
     }
   };
 
-  // Launch bulk issuance job
+  // Launch bulk issuance job with direct download streaming
   const handleStartBulkJob = async (mode: string) => {
     if (!currentProject) return;
+    setDownloadingMode(mode);
     setIsSubmittingJob(true);
     try {
-      const job = await api.createIssuanceJob(currentProject.id, mode);
-      setActiveJob(job);
-      setIsSubmittingJob(false);
+      let exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-pdf`;
+      let defaultName = `certificates_consolidated_${currentProject.id.slice(0, 8)}.pdf`;
+      if (mode === 'zip_pdf') {
+        exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-zip`;
+        defaultName = `certificates_pdf_bundle_${currentProject.id.slice(0, 8)}.zip`;
+      } else if (mode === 'zip_png') {
+        exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-png`;
+        defaultName = `certificates_png_bundle_${currentProject.id.slice(0, 8)}.zip`;
+      }
+
+      // Trigger background issuance tracking so credentials are logged and recorded in database
+      api.createIssuanceJob(currentProject.id, mode).then((job) => {
+        setActiveJob(job);
+      }).catch((e) => console.warn('Issuance record tracking notice:', e));
+
+      // Direct in-memory stream download directly to browser
+      const res = await fetch(exportUrl);
+      if (!res.ok) {
+        throw new Error('Direct stream failed, falling back to window location');
+      }
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      useProjectStore.getState().refreshRecipients();
     } catch (err: any) {
+      console.warn('Direct stream notice, redirecting to file endpoint:', err);
+      window.location.href = `/api/v1/projects/${currentProject.id}/export/${mode === 'consolidated_pdf' ? 'bulk-pdf' : mode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}`;
+    } finally {
       setIsSubmittingJob(false);
-      alert(err.message || 'Failed to start batch job');
+      setDownloadingMode(null);
     }
   };
 
@@ -281,10 +313,20 @@ export const IssuanceCenter: React.FC = () => {
               </div>
               <button
                 onClick={() => handleStartBulkJob('zip_pdf')}
-                disabled={isSubmittingJob || (activeJob?.status === 'processing')}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50"
+                disabled={isSubmittingJob}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center justify-center space-x-1.5 transition-colors"
               >
-                Generate ZIP (PDF)
+                {downloadingMode === 'zip_pdf' ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Preparing ZIP...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download ZIP (PDF)</span>
+                  </>
+                )}
               </button>
             </div>
 
@@ -298,10 +340,20 @@ export const IssuanceCenter: React.FC = () => {
               </div>
               <button
                 onClick={() => handleStartBulkJob('consolidated_pdf')}
-                disabled={isSubmittingJob || (activeJob?.status === 'processing')}
-                className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50"
+                disabled={isSubmittingJob}
+                className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center justify-center space-x-1.5 transition-colors"
               >
-                Generate Combined PDF
+                {downloadingMode === 'consolidated_pdf' ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Generating PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download Combined PDF</span>
+                  </>
+                )}
               </button>
             </div>
 
@@ -315,10 +367,20 @@ export const IssuanceCenter: React.FC = () => {
               </div>
               <button
                 onClick={() => handleStartBulkJob('zip_png')}
-                disabled={isSubmittingJob || (activeJob?.status === 'processing')}
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50"
+                disabled={isSubmittingJob}
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center justify-center space-x-1.5 transition-colors"
               >
-                Generate ZIP (PNG)
+                {downloadingMode === 'zip_png' ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Packaging PNGs...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download ZIP (PNG)</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

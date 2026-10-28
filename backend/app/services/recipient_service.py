@@ -6,31 +6,69 @@ from sqlalchemy.orm import Session
 from app.models import Recipient, FormField, Project
 
 SYNONYM_MAP = {
+    # Recipient name synonyms
     "name": "recipient_name",
     "full_name": "recipient_name",
     "fullname": "recipient_name",
     "participant_name": "recipient_name",
+    "participant": "recipient_name",
     "student_name": "recipient_name",
+    "student": "recipient_name",
     "attendee_name": "recipient_name",
+    "attendee": "recipient_name",
+    "candidate_name": "recipient_name",
+    "candidate": "recipient_name",
     "recipient": "recipient_name",
+    "recipient_name": "recipient_name",
+    "person_name": "recipient_name",
+    "person": "recipient_name",
+    "member_name": "recipient_name",
+    "member": "recipient_name",
+    "first_name": "recipient_name",
+    "firstname": "recipient_name",
+    "last_name": "recipient_name",
+    "username": "recipient_name",
+    
+    # Email synonyms
     "mail": "email",
     "email_address": "email",
     "e_mail": "email",
+    "emailaddress": "email",
+    
+    # Phone synonyms
     "phone": "phone_number",
     "mobile": "phone_number",
     "contact": "phone_number",
+    
+    # Registration & Credential ID
     "registration_no": "registration_id",
     "reg_no": "registration_id",
+    "reg_id": "registration_id",
     "roll_no": "registration_id",
     "id": "registration_id",
+    "certificate_id": "certificate_id",
+    
+    # Organization / College / Institution
     "organization": "institution",
+    "org": "institution",
     "company": "institution",
     "college": "institution",
     "university": "institution",
+    "dept": "institution",
+    "department": "institution",
+    "school": "institution",
+    "institute": "institution",
+    
+    # Award / Course / Event
     "award": "award_category",
     "category": "award_category",
     "course": "course_name",
+    "course_name": "course_name",
     "date": "event_date",
+    "event": "event_name",
+    "event_name": "event_name",
+    "workshop": "event_name",
+    "conference": "event_name",
 }
 
 def suggest_column_mapping(headers: List[str], available_keys: List[str]) -> Dict[str, str]:

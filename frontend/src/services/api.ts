@@ -90,11 +90,14 @@ export const api = {
       raw_rows: any[];
     }>(`/projects/${projectId}/recipients/parse-file`, { method: 'POST', body: fd });
   },
-  importRecipients: (projectId: string, rows: any[], column_mapping: Record<string, string>) => 
+  importRecipients: (projectId: string, rows: any[], column_mapping: Record<string, string>, clear_existing = false) => 
     request<{ success: boolean; imported_count: number }>(`/projects/${projectId}/recipients/import`, {
       method: 'POST',
-      body: JSON.stringify({ rows, column_mapping })
+      body: JSON.stringify({ rows, column_mapping, clear_existing })
     }),
+  getBulkPdfUrl: (projectId: string) => `/api/v1/projects/${projectId}/export/bulk-pdf`,
+  getBulkZipUrl: (projectId: string) => `/api/v1/projects/${projectId}/export/bulk-zip`,
+  getBulkPngUrl: (projectId: string) => `/api/v1/projects/${projectId}/export/bulk-png`,
 
   // Signatures
   getSignatures: () => request<SignatureAsset[]>('/signatures'),

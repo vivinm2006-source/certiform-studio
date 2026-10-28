@@ -4,7 +4,8 @@ import {
   Trash2, Copy, Move, CheckSquare, Grid, Compass, 
   AlignLeft, AlignCenter, AlignRight, Layers, Sparkles,
   Download, Edit3, X, RefreshCw, Sliders, Upload,
-  PanelLeft, PanelRight, ChevronDown, Check, Plus, LayoutTemplate
+  PanelLeft, PanelRight, ChevronDown, Check, Plus, LayoutTemplate,
+  ChevronLeft, ChevronRight, User
 } from 'lucide-react';
 import { CanvasElement } from '../../types';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -23,16 +24,79 @@ function resolveText(templateStr: string | undefined, data: Record<string, any>,
   }
   return templateStr.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
     const cleanKey = key.trim();
-    const val = merged[cleanKey] ?? merged[cleanKey.toLowerCase().replace(/ /g, '_')];
+    let val = merged[cleanKey] ?? merged[cleanKey.toLowerCase()] ?? merged[cleanKey.toLowerCase().replace(/ /g, '_')];
+    if (val === undefined && cleanKey.toLowerCase().includes('name')) {
+      for (const cand of ['recipient_name', 'full_name', 'name', 'student_name', 'participant_name']) {
+        if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
+          val = merged[cand];
+          break;
+        }
+      }
+    }
     return val !== undefined ? String(val) : `{{${cleanKey}}}`;
   });
+}
+
+function resolveDynamicValue(
+  bindingKey: string | undefined, 
+  content: string | undefined, 
+  data: Record<string, any>, 
+  credentialId?: string
+): string {
+  if (!data || Object.keys(data).length === 0) {
+    return content || '';
+  }
+
+  // 1. Direct binding key lookup
+  if (bindingKey && data[bindingKey] !== undefined && String(data[bindingKey]).trim() !== '') {
+    return String(data[bindingKey]);
+  }
+
+  // 2. Normalized binding key lookup
+  if (bindingKey) {
+    const norm = bindingKey.toLowerCase().replace(/ /g, '_');
+    if (data[norm] !== undefined && String(data[norm]).trim() !== '') {
+      return String(data[norm]);
+    }
+  }
+
+  // 3. Smart Name fallback: if binding key looks like a name field, or content is a known name placeholder
+  const isNameBinding = (bindingKey && ['recipient_name', 'name', 'full_name', 'student_name', 'participant_name', 'candidate_name'].includes(bindingKey.toLowerCase())) ||
+    (!bindingKey && content && ['ananya kumar', 'recipient name', 'student name', 'candidate name', 'full name', 'name', 'john doe'].includes(content.toLowerCase().trim()));
+
+  if (isNameBinding) {
+    const candidateKeys = [
+      'recipient_name', 'full_name', 'name', 'student_name', 
+      'participant_name', 'candidate_name', 'attendee_name',
+      'Full Name', 'Name', 'Student Name', 'Candidate Name', 'Participant Name'
+    ];
+    for (const key of candidateKeys) {
+      if (data[key] !== undefined && String(data[key]).trim() !== '') {
+        return String(data[key]);
+      }
+    }
+    // Fuzzy match any field in data where key contains 'name'
+    for (const [k, v] of Object.entries(data)) {
+      if (k.toLowerCase().includes('name') && v !== undefined && String(v).trim() !== '') {
+        return String(v);
+      }
+    }
+  }
+
+  // 4. If content contains {{...}} tags, resolve with full data
+  if (content && content.includes('{{')) {
+    return resolveText(content, data, credentialId);
+  }
+
+  // 5. Fallback to content
+  return content || '';
 }
 
 export const CanvasWorkspace: React.FC = () => {
   const { 
     activeTemplate, templates, selectTemplate, duplicateTemplate, 
     deleteTemplate, setTemplateGalleryOpen, recipients, 
-    activeRecipientIndex, updateActiveRecipientData 
+    activeRecipientIndex, setActiveRecipientIndex, updateActiveRecipientData 
   } = useProjectStore();
   const { 
     zoom, setZoom, selectedElementId, setSelectedElementId,
@@ -507,6 +571,37 @@ export const CanvasWorkspace: React.FC = () => {
           </button>
         </div>
 
+        {/* Recipient Carousel Switcher */}
+        {recipients && recipients.length > 0 && (
+          <div className="flex items-center space-x-1 bg-slate-100/90 rounded-lg p-0.5 border border-slate-200">
+            <button
+              onClick={() => setActiveRecipientIndex(Math.max(0, activeRecipientIndex - 1))}
+              disabled={activeRecipientIndex === 0}
+              className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Previous Recipient"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </button>
+            <div className="px-1.5 py-0.5 flex items-center space-x-1.5 text-xs text-slate-700 font-medium">
+              <User className="h-3 w-3 text-brand-600 flex-shrink-0" />
+              <span className="truncate max-w-[100px] sm:max-w-[150px] font-semibold">
+                {activeRec?.data?.recipient_name || activeRec?.data?.name || activeRec?.data?.full_name || `Recipient ${activeRecipientIndex + 1}`}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                ({activeRecipientIndex + 1}/{recipients.length})
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveRecipientIndex(Math.min(recipients.length - 1, activeRecipientIndex + 1))}
+              disabled={activeRecipientIndex >= recipients.length - 1}
+              className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Next Recipient"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
         {/* View toggles & Quick Export Actions */}
         <div className="flex items-center space-x-1.5 text-xs flex-shrink-0">
           <div className="hidden sm:flex items-center space-x-1">
@@ -675,9 +770,7 @@ export const CanvasWorkspace: React.FC = () => {
               const alignClass = el.text_align === 'left' ? 'items-start text-left' : el.text_align === 'right' ? 'items-end text-right' : 'items-center text-center';
 
               if (el.element_type === 'dynamic_text') {
-                const textVal = el.binding_key
-                  ? String(recData[el.binding_key] ?? el.content ?? '')
-                  : resolveText(el.content, recData, 'CERT-2026-000125');
+                const textVal = resolveDynamicValue(el.binding_key, el.content, recData, 'CERT-2026-000125');
 
                 const scaledFont = Math.max(8, el.font_size * zoom * (baseWidthPx / 841.89));
 
@@ -953,8 +1046,12 @@ export const CanvasWorkspace: React.FC = () => {
               <label className="text-[11px] font-semibold text-slate-600 block">Recipient Full Name</label>
               <input
                 type="text"
-                value={recData.recipient_name || ''}
-                onChange={(e) => updateActiveRecipientData('recipient_name', e.target.value)}
+                value={recData.recipient_name || recData.full_name || recData.name || ''}
+                onChange={(e) => {
+                  updateActiveRecipientData('recipient_name', e.target.value);
+                  updateActiveRecipientData('name', e.target.value);
+                  updateActiveRecipientData('full_name', e.target.value);
+                }}
                 placeholder="Enter recipient name"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />

@@ -168,8 +168,8 @@ class Recipient(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     project = relationship("Project", back_populates="recipients")
-    submissions = relationship("FormSubmission", back_populates="recipient")
-    credentials = relationship("Credential", back_populates="recipient")
+    submissions = relationship("FormSubmission", back_populates="recipient", cascade="all, delete-orphan")
+    credentials = relationship("Credential", back_populates="recipient", cascade="all, delete-orphan")
 
 class FormSubmission(Base):
     __tablename__ = "form_submissions"

@@ -64,9 +64,13 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
       const job = await api.createIssuanceJob(currentProject.id, outputMode);
       setActiveJob(job);
       setIsSubmitting(false);
+      if (job.status === 'completed' || job.artifact_url) {
+        window.location.href = `/api/v1/issuance/jobs/${job.id}/download`;
+      }
     } catch (err: any) {
       setIsSubmitting(false);
-      alert(err.message || 'Failed to start bulk generation job');
+      console.warn('Job creation notice, trying direct bulk stream fallback:', err);
+      window.location.href = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}`;
     }
   };
 

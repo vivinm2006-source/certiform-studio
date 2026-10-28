@@ -47,9 +47,57 @@ def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], cr
             # Check lowercase / sanitized key
             key_norm = key.lower().replace(" ", "_")
             val = merged.get(key_norm)
+        if val is None and "name" in key.lower():
+            for cand in ("recipient_name", "full_name", "name", "student_name", "participant_name"):
+                if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
+                    val = merged[cand]
+                    break
         return str(val) if val is not None else match.group(0)
     
     return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+
+def extract_element_text(el: Dict[str, Any], recipient_data: Dict[str, Any], credential_id: Optional[str] = None) -> str:
+    """
+    Intelligently resolves dynamic text element value with smart fuzzy fallbacks.
+    Prioritizes real recipient data over static template placeholder content.
+    """
+    el_type = el.get("element_type")
+    b_key = el.get("binding_key")
+    content = el.get("content", "")
+    
+    if el_type == "dynamic_text":
+        # 1. Exact binding key match
+        if b_key and b_key in recipient_data and recipient_data[b_key] is not None and str(recipient_data[b_key]).strip():
+            return str(recipient_data[b_key]).strip()
+            
+        # 2. Normalized binding key match
+        if b_key:
+            norm_b = b_key.lower().replace(" ", "_")
+            if norm_b in recipient_data and recipient_data[norm_b] is not None and str(recipient_data[norm_b]).strip():
+                return str(recipient_data[norm_b]).strip()
+                
+        # 3. Smart Name Aliases for name bindings
+        if b_key in ("recipient_name", "name", "full_name", "student_name", "participant_name") or not b_key:
+            for candidate_key in ("recipient_name", "full_name", "name", "student_name", "participant_name", "candidate_name", "Full Name", "Name", "Student Name"):
+                if candidate_key in recipient_data and recipient_data[candidate_key] is not None and str(recipient_data[candidate_key]).strip():
+                    return str(recipient_data[candidate_key]).strip()
+            # Fuzzy match any key with 'name'
+            for k, v in recipient_data.items():
+                if "name" in k.lower() and v is not None and str(v).strip():
+                    return str(v).strip()
+                    
+        # 4. Check if content has template variables {{...}}
+        if "{{" in content:
+            return resolve_text_variables(content, recipient_data, credential_id)
+            
+        # 5. If binding key matched nothing, check if content has fallback
+        if content:
+            return str(content)
+            
+        return ""
+    else:
+        # static_text: check for template tags
+        return resolve_text_variables(content, recipient_data, credential_id)
 
 def get_pil_font(font_family: str, size_px: int, font_weight: str = "normal", font_style: str = "normal") -> ImageFont.ImageFont:
     """Attempt to load matching system or standard TrueType font, fallback to default."""
@@ -152,15 +200,7 @@ def render_certificate_image(
         )
         
         if el_type in ("dynamic_text", "static_text"):
-            # Determine text content
-            if el_type == "dynamic_text":
-                b_key = el.get("binding_key")
-                if b_key:
-                    text_val = str(recipient_data.get(b_key, el.get("content", "")))
-                else:
-                    text_val = resolve_text_variables(el.get("content", ""), recipient_data, credential_id)
-            else:
-                text_val = resolve_text_variables(el.get("content", ""), recipient_data, credential_id)
+            text_val = extract_element_text(el, recipient_data, credential_id)
                 
             if el.get("uppercase", False):
                 text_val = text_val.upper()
