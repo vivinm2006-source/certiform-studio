@@ -68,7 +68,7 @@ export const PropertiesPanel: React.FC = () => {
   ];
 
   const availableBindingKeys = [
-    'recipient_name', 'email', 'institution', 'event_name', 'event_date', 
+    'recipient_name', 'department', 'dob', 'date_of_birth', 'email', 'institution', 'event_name', 'event_date', 
     'registration_id', 'certificate_id', 'award_category'
   ];
 

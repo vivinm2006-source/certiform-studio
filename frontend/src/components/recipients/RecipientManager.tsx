@@ -30,6 +30,9 @@ export const RecipientManager: React.FC = () => {
     raw_rows: any[];
   } | null>(null);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [mappedNameCol, setMappedNameCol] = useState<string>('');
+  const [mappedDeptCol, setMappedDeptCol] = useState<string>('');
+  const [mappedDobCol, setMappedDobCol] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
   const [clearExisting, setClearExisting] = useState(true);
 
@@ -44,21 +47,50 @@ export const RecipientManager: React.FC = () => {
 
   const activeRec = recipients[activeRecipientIndex];
 
-  // Derive unique column keys from current recipients or form fields
+  // Derive unique, clean, non-duplicated column keys
   const dataColumns = React.useMemo(() => {
-    const keys = new Set<string>();
+    const rawKeys = new Set<string>();
     recipients.forEach((r) => {
       if (r.data) {
-        Object.keys(r.data).forEach((k) => keys.add(k));
+        Object.keys(r.data).forEach((k) => {
+          if (k && k.trim()) rawKeys.add(k.trim());
+        });
       }
     });
-    // Ensure primary keys exist
-    keys.add('recipient_name');
-    keys.add('email');
-    keys.add('institution');
-    keys.add('event_name');
-    keys.add('event_date');
-    return Array.from(keys);
+
+    // Primary canonical keys we always present first in standard display order
+    const primaryOrder = ['recipient_name', 'department', 'dob', 'event_name', 'event_date', 'institution', 'email'];
+    
+    // Internal alias keys that should NOT appear as duplicate columns if canonical column exists
+    const aliasBlacklist = new Set([
+      'name', 'full_name', 'student_name', 's_name', 'sname', 's.name', 's_word', 'participant_name', 'candidate_name',
+      'dept', 'date_of_birth', 'birth_date', 'session_topic', 'venue'
+    ]);
+
+    const result: string[] = [];
+
+    // 1. Add primary columns that exist in the records or are standard
+    for (const p of primaryOrder) {
+      if (rawKeys.has(p) || p === 'recipient_name') {
+        result.push(p);
+      } else if (p === 'department' && (rawKeys.has('dept') || rawKeys.has('department') || rawKeys.has('branch'))) {
+        result.push(p);
+      } else if (p === 'dob' && (rawKeys.has('dob') || rawKeys.has('date_of_birth') || rawKeys.has('birth_date'))) {
+        result.push(p);
+      }
+    }
+
+    // 2. Add other unique custom columns (case-insensitive deduplication, skipping internal aliases)
+    const seenLower = new Set(result.map(k => k.toLowerCase()));
+    Array.from(rawKeys).forEach((k) => {
+      const kLower = k.toLowerCase().replace(/ /g, '_');
+      if (!seenLower.has(kLower) && !aliasBlacklist.has(kLower) && !primaryOrder.includes(kLower)) {
+        seenLower.add(kLower);
+        result.push(k);
+      }
+    });
+
+    return result;
   }, [recipients]);
 
   const handleAddNewRecipient = async () => {
@@ -66,6 +98,8 @@ export const RecipientManager: React.FC = () => {
     try {
       const newRec = await api.createRecipient(currentProject.id, {
         recipient_name: 'New Recipient',
+        department: 'Engineering',
+        dob: '2004-01-01',
         email: 'recipient@example.com',
         event_name: 'Annual Summit 2026',
         event_date: 'October 27, 2026',
@@ -94,18 +128,53 @@ export const RecipientManager: React.FC = () => {
     try {
       const parsed = await api.parseSpreadsheetFile(currentProject.id, file);
       setImportPreview(parsed);
-      setColumnMapping(parsed.suggested_mapping);
+      setColumnMapping(parsed.suggested_mapping || {});
+
+      // Auto-detect Name, Department, and Date of Birth columns
+      const headers = parsed.headers || [];
+      const nameMatch = headers.find(h => {
+        const hl = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return ['studentname', 'name', 'fullname', 'recipientname', 'candidatename', 'sname', 'student'].includes(hl);
+      }) || headers.find(h => h.toLowerCase().includes('name') && !['event', 'college', 'dept', 'topic'].some(s => h.toLowerCase().includes(s))) || '';
+      
+      const deptMatch = headers.find(h => {
+        const hl = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return ['department', 'dept', 'branch', 'stream', 'discipline'].includes(hl);
+      }) || headers.find(h => h.toLowerCase().includes('department') || h.toLowerCase().includes('dept') || h.toLowerCase().includes('branch')) || '';
+
+      const dobMatch = headers.find(h => {
+        const hl = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return ['dob', 'dateofbirth', 'birthdate', 'birthday'].includes(hl);
+      }) || headers.find(h => h.toLowerCase().includes('dob') || h.toLowerCase().includes('birth')) || '';
+
+      setMappedNameCol(nameMatch);
+      setMappedDeptCol(deptMatch);
+      setMappedDobCol(dobMatch);
+
       setShowImportModal(true);
     } catch (err: any) {
       alert(err.message || 'Failed to parse file');
+    } finally {
+      // Clear file input value so uploading the same file again triggers onChange
+      e.target.value = '';
     }
   };
 
   const handleExecuteImport = async () => {
     if (!currentProject || !importPreview) return;
+    if (!mappedNameCol) {
+      alert('Please select a spreadsheet column for Participant Name before proceeding.');
+      return;
+    }
+
     setIsImporting(true);
     try {
-      await api.importRecipients(currentProject.id, importPreview.raw_rows, columnMapping, clearExisting);
+      const finalMapping: Record<string, string> = { ...columnMapping };
+      if (mappedNameCol) finalMapping[mappedNameCol] = 'recipient_name';
+      if (mappedDeptCol) finalMapping[mappedDeptCol] = 'department';
+      if (mappedDobCol) finalMapping[mappedDobCol] = 'dob';
+
+      await api.importRecipients(currentProject.id, importPreview.raw_rows, finalMapping, clearExisting);
       setIsImporting(false);
       setShowImportModal(false);
       setImportPreview(null);
@@ -218,14 +287,27 @@ export const RecipientManager: React.FC = () => {
             <tr>
               <th className="w-12 px-3 py-2.5 text-center border-r border-slate-200">#</th>
               <th className="w-24 px-3 py-2.5 border-r border-slate-200">Status</th>
-              {dataColumns.map((col) => (
-                <th key={col} className="px-4 py-2.5 border-r border-slate-200 min-w-[180px]">
-                  <div className="flex items-center justify-between">
-                    <span>{col.replace(/_/g, ' ')}</span>
-                    <span className="font-mono text-[9px] text-slate-400 lowercase">{`{{${col}}}`}</span>
-                  </div>
-                </th>
-              ))}
+              {dataColumns.map((col) => {
+                const labelMap: Record<string, string> = {
+                  recipient_name: 'Participant Name',
+                  department: 'Department',
+                  dob: 'Date of Birth',
+                  event_name: 'Event / Topic',
+                  event_date: 'Event Date',
+                  institution: 'Institution / College',
+                  email: 'Email',
+                  registration_id: 'Roll / Reg No'
+                };
+                const displayTitle = labelMap[col] || col.replace(/_/g, ' ');
+                return (
+                  <th key={col} className="px-4 py-2.5 border-r border-slate-200 min-w-[180px]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-700">{displayTitle}</span>
+                      <span className="font-mono text-[9px] text-brand-600 bg-brand-50 px-1 py-0.5 rounded lowercase">{`{{${col}}}`}</span>
+                    </div>
+                  </th>
+                );
+              })}
               <th className="w-20 px-3 py-2.5 text-center">Actions</th>
             </tr>
           </thead>
@@ -257,7 +339,10 @@ export const RecipientManager: React.FC = () => {
                     </span>
                   </td>
                   {dataColumns.map((col) => {
-                    const cellVal = rec.data?.[col] ?? '';
+                    let cellVal = rec.data?.[col] ?? '';
+                    if (!cellVal && col === 'dob') cellVal = rec.data?.['date_of_birth'] ?? rec.data?.['birth_date'] ?? '';
+                    if (!cellVal && col === 'department') cellVal = rec.data?.['dept'] ?? rec.data?.['branch'] ?? '';
+                    if (!cellVal && col === 'recipient_name') cellVal = rec.data?.['full_name'] ?? rec.data?.['name'] ?? rec.data?.['student_name'] ?? '';
                     return (
                       <td key={col} className="p-0 border-r border-slate-200 min-w-[180px]">
                         <input
@@ -318,47 +403,206 @@ export const RecipientManager: React.FC = () => {
       {/* Smart Column Mapping & Import Modal */}
       {showImportModal && importPreview && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 space-y-6">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 space-y-5">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Smart Column Mapping</h3>
-                <p className="text-xs text-slate-500">
-                  Found {importPreview.total_rows} rows in <strong className="text-slate-800">{importFile?.name}</strong>. Verify column bindings below:
+                <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+                  <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+                  <span>Excel Field Mapping & Verification</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Parsed <strong className="text-slate-800">{importPreview.total_rows}</strong> participants from <strong className="text-slate-800">{importFile?.name}</strong>. Each spreadsheet column is displayed once.
                 </p>
               </div>
               <button
                 onClick={() => setShowImportModal(false)}
-                className="text-slate-400 hover:text-slate-700 font-bold p-1"
+                className="text-slate-400 hover:text-slate-700 font-bold p-1 rounded"
               >
                 ✕
               </button>
             </div>
 
-            {/* Mapping Grid */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-700 border-b border-slate-200 pb-2">
-                <span>Spreadsheet Column Header</span>
-                <span>Certificate Dynamic Field</span>
+            {/* Validation Alert if Name is Unmapped */}
+            {!mappedNameCol && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-2.5 text-xs text-amber-800">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <span>
+                  <strong>Participant Name column required:</strong> Please select which spreadsheet column contains participant names below.
+                </span>
               </div>
-              {importPreview.headers.map((hdr) => (
-                <div key={hdr} className="grid grid-cols-2 gap-4 items-center">
-                  <span className="text-xs font-medium text-slate-800 bg-slate-100 px-3 py-2 rounded">
-                    {hdr}
-                  </span>
+            )}
+
+            {/* Primary Required Fields Mapping */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-brand-600" />
+                <span>Primary Certificate Field Mapping</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                {/* 1. Participant Name */}
+                <div className={`p-3.5 rounded-xl border space-y-1.5 ${mappedNameCol ? 'bg-emerald-50/50 border-emerald-300' : 'bg-amber-50/50 border-amber-300'}`}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">Participant Name</label>
+                    <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded uppercase">Required</span>
+                  </div>
                   <select
-                    value={columnMapping[hdr] || ''}
-                    onChange={(e) => setColumnMapping({ ...columnMapping, [hdr]: e.target.value })}
-                    className="border border-slate-300 rounded px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:border-brand-500 font-mono"
+                    value={mappedNameCol}
+                    onChange={(e) => setMappedNameCol(e.target.value)}
+                    className="w-full border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500 shadow-2xs font-medium"
                   >
-                    <option value="">-- Ignore Column --</option>
-                    {importPreview.available_keys.map((k) => (
-                      <option key={k} value={k}>
-                        {`{{${k}}}`}
+                    <option value="">-- Select Column --</option>
+                    {importPreview.headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
                       </option>
                     ))}
                   </select>
+                  <p className="text-[10px] text-slate-500">Prints as the recipient on the certificate</p>
                 </div>
-              ))}
+
+                {/* 2. Department */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">Department</label>
+                    <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-1.5 py-0.5 rounded">Recommended</span>
+                  </div>
+                  <select
+                    value={mappedDeptCol}
+                    onChange={(e) => setMappedDeptCol(e.target.value)}
+                    className="w-full border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500 shadow-2xs font-medium"
+                  >
+                    <option value="">-- None / Optional --</option>
+                    {importPreview.headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500">Maps to {`{{department}}`}</p>
+                </div>
+
+                {/* 3. Date of Birth */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">Date of Birth (DOB)</label>
+                    <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-1.5 py-0.5 rounded">Optional</span>
+                  </div>
+                  <select
+                    value={mappedDobCol}
+                    onChange={(e) => setMappedDobCol(e.target.value)}
+                    className="w-full border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500 shadow-2xs font-medium"
+                  >
+                    <option value="">-- None / Optional --</option>
+                    {importPreview.headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500">Maps to {`{{dob}}`} / {`{{date_of_birth}}`}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Custom Spreadsheet Columns */}
+            <div className="space-y-2 pt-1 border-t border-slate-100">
+              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Other Spreadsheet Columns
+              </h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {importPreview.headers
+                  .filter((h) => h !== mappedNameCol && h !== mappedDeptCol && h !== mappedDobCol)
+                  .map((hdr) => (
+                    <div key={hdr} className="grid grid-cols-2 gap-3 items-center">
+                      <span className="text-xs font-medium text-slate-700 bg-slate-100 px-3 py-1.5 rounded truncate">
+                        {hdr}
+                      </span>
+                      <select
+                        value={columnMapping[hdr] || ''}
+                        onChange={(e) => setColumnMapping({ ...columnMapping, [hdr]: e.target.value })}
+                        className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 bg-white outline-none focus:border-brand-500 font-mono shadow-2xs"
+                      >
+                        <option value="">-- Keep Raw Column --</option>
+                        {importPreview.available_keys
+                          .filter(k => k !== 'recipient_name' && k !== 'department' && k !== 'dob' && k !== 'date_of_birth')
+                          .map((k) => (
+                            <option key={k} value={k}>
+                              {`{{${k}}}`}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Data Preview Table */}
+            <div className="space-y-1.5 pt-1 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Data Preview (First {Math.min(importPreview.preview_rows.length, 4)} Rows)
+                </h4>
+                <span className="text-[10px] text-slate-400">Verifies data before importing</span>
+              </div>
+              <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-36">
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead className="bg-slate-100/90 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-1.5 border-r border-slate-200">#</th>
+                      <th className="px-3 py-1.5 border-r border-slate-200 text-brand-700 font-bold bg-brand-50/50">
+                        {mappedNameCol ? `${mappedNameCol} (Name)` : 'Participant Name'}
+                      </th>
+                      {mappedDeptCol && (
+                        <th className="px-3 py-1.5 border-r border-slate-200">
+                          {mappedDeptCol} (Dept)
+                        </th>
+                      )}
+                      {mappedDobCol && (
+                        <th className="px-3 py-1.5 border-r border-slate-200">
+                          {mappedDobCol} (DOB)
+                        </th>
+                      )}
+                      {importPreview.headers
+                        .filter(h => h !== mappedNameCol && h !== mappedDeptCol && h !== mappedDobCol)
+                        .slice(0, 3)
+                        .map(h => (
+                          <th key={h} className="px-3 py-1.5 border-r border-slate-200 text-slate-500">
+                            {h}
+                          </th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {importPreview.preview_rows.slice(0, 4).map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="px-3 py-1.5 font-mono text-[10px] text-slate-400 border-r border-slate-100">{idx + 1}</td>
+                        <td className="px-3 py-1.5 font-semibold text-slate-900 border-r border-slate-100 bg-brand-50/20">
+                          {mappedNameCol ? row[mappedNameCol] : '—'}
+                        </td>
+                        {mappedDeptCol && (
+                          <td className="px-3 py-1.5 text-slate-700 border-r border-slate-100">
+                            {row[mappedDeptCol] || '—'}
+                          </td>
+                        )}
+                        {mappedDobCol && (
+                          <td className="px-3 py-1.5 text-slate-700 border-r border-slate-100">
+                            {row[mappedDobCol] || '—'}
+                          </td>
+                        )}
+                        {importPreview.headers
+                          .filter(h => h !== mappedNameCol && h !== mappedDeptCol && h !== mappedDobCol)
+                          .slice(0, 3)
+                          .map(h => (
+                            <td key={h} className="px-3 py-1.5 text-slate-600 border-r border-slate-100">
+                              {row[h] || '—'}
+                            </td>
+                          ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Clear existing option */}
@@ -370,7 +614,7 @@ export const RecipientManager: React.FC = () => {
                   onChange={(e) => setClearExisting(e.target.checked)}
                   className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4"
                 />
-                <span className="font-medium">Replace existing project recipients with this spreadsheet</span>
+                <span className="font-semibold text-slate-800">Replace existing project recipients with this spreadsheet</span>
               </label>
             </div>
 
@@ -384,8 +628,8 @@ export const RecipientManager: React.FC = () => {
               </button>
               <button
                 onClick={handleExecuteImport}
-                disabled={isImporting}
-                className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-2 disabled:opacity-50"
+                disabled={isImporting || !mappedNameCol}
+                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center space-x-2 disabled:opacity-50 transition-colors"
               >
                 {isImporting ? <span>Importing...</span> : <span>Confirm & Import {importPreview.total_rows} Recipients</span>}
               </button>

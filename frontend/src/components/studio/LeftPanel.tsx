@@ -48,6 +48,8 @@ export const LeftPanel: React.FC = () => {
 
   const dynamicBindings = [
     { label: 'Recipient Name', key: 'recipient_name', defaultText: 'Ananya Kumar' },
+    { label: 'Department / Branch', key: 'department', defaultText: 'Department of Computer Science' },
+    { label: 'Date of Birth (DOB)', key: 'dob', defaultText: '15/08/2004' },
     { label: 'Email Address', key: 'email', defaultText: 'ananya@example.com' },
     { label: 'Institution / Org', key: 'institution', defaultText: 'Stanford University' },
     { label: 'Event / Track Name', key: 'event_name', defaultText: 'Global AI Summit 2026' },

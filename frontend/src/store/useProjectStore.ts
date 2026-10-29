@@ -218,6 +218,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       updatedData.department = value;
       updatedData.dept = value;
     }
+    // Synchronize Date of Birth (DOB) synonyms
+    if (['dob', 'date_of_birth', 'birth_date', 'birthdate', 'birthday'].includes(kLow)) {
+      updatedData.dob = value;
+      updatedData.date_of_birth = value;
+      updatedData.birth_date = value;
+    }
     // Synchronize date synonyms
     if (['event_date', 'date'].includes(kLow)) {
       updatedData.event_date = value;

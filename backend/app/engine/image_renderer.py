@@ -47,14 +47,20 @@ def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], cr
             key_norm = key.lower().replace(" ", "_").replace("-", "_")
             val = merged.get(key_norm)
             
-        if val is None and "name" in key.lower():
-            for cand in ("recipient_name", "full_name", "name", "student_name", "participant_name", "Student Name", "Full Name", "Name"):
+        if val is None and ("name" in key.lower() or "student" in key.lower() or key.lower() in ("s_name", "sname", "s.name", "s")):
+            for cand in ("recipient_name", "student_name", "s_name", "sname", "s.name", "student", "full_name", "name", "participant_name", "candidate_name", "Student Name", "Full Name", "Name"):
                 if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
                     val = merged[cand]
                     break
                     
         if val is None and ("department" in key.lower() or "dept" in key.lower()):
             for cand in ("department", "dept", "Department", "branch", "Department Name"):
+                if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
+                    val = merged[cand]
+                    break
+
+        if val is None and ("dob" in key.lower() or "birth" in key.lower()):
+            for cand in ("dob", "date_of_birth", "birth_date", "birthdate", "DOB", "Date of Birth", "Birth Date"):
                 if cand in merged and merged[cand] is not None and str(merged[cand]).strip():
                     val = merged[cand]
                     break
@@ -107,16 +113,42 @@ def extract_element_text(el: Dict[str, Any], recipient_data: Dict[str, Any], cre
                 
         # 4. Smart Name Aliases for name bindings
         is_name_field = (
-            (b_key and b_key.lower() in ("recipient_name", "name", "full_name", "student_name", "participant_name", "candidate_name")) or
-            (not b_key and content and content.strip().lower() in ("student name", "recipient name", "participant name", "candidate name", "full name", "name", "ananya kumar", "john doe"))
+            (b_key and b_key.lower() in ("recipient_name", "name", "full_name", "student_name", "participant_name", "candidate_name", "s_name", "sname", "s.name", "student", "s_word")) or
+            (not b_key and content and content.strip().lower() in ("student name", "recipient name", "participant name", "candidate name", "full name", "name", "ananya kumar", "john doe", "s name", "s.name", "s word"))
         )
         if is_name_field:
-            for candidate_key in ("recipient_name", "full_name", "name", "student_name", "participant_name", "candidate_name", "Full Name", "Name", "Student Name"):
+            for candidate_key in (
+                "recipient_name", "student_name", "s_name", "sname", "s.name", "student",
+                "full_name", "name", "participant_name", "candidate_name",
+                "Student Name", "Full Name", "Name", "Student", "S.Name", "S Name", "SName"
+            ):
                 if candidate_key in recipient_data and recipient_data[candidate_key] is not None and str(recipient_data[candidate_key]).strip():
                     return str(recipient_data[candidate_key]).strip()
-            # Fuzzy match any key with 'name'
+            # Fuzzy match person terms first
             for k, v in recipient_data.items():
-                if "name" in k.lower() and v is not None and str(v).strip():
+                k_low = k.lower()
+                if any(term in k_low for term in ["student", "candidate", "participant", "recipient", "person", "member"]) and v and str(v).strip():
+                    return str(v).strip()
+            # Fuzzy match any other key with 'name', but NEVER event/topic/college/dept/dob/date
+            for k, v in recipient_data.items():
+                k_low = k.lower()
+                if any(skip in k_low for skip in ["event", "topic", "session", "workshop", "college", "institute", "dept", "department", "school", "faculty", "venue", "dob", "birth", "date"]):
+                    continue
+                if "name" in k_low and v is not None and str(v).strip():
+                    return str(v).strip()
+
+        # 4b. Date of Birth (DOB) Aliases
+        is_dob_field = (
+            (b_key and b_key.lower() in ("dob", "date_of_birth", "birth_date", "birthdate")) or
+            (not b_key and content and content.strip().lower() in ("dob", "date of birth", "birth date", "birthday"))
+        )
+        if is_dob_field:
+            for cand in ("dob", "date_of_birth", "birth_date", "birthdate", "DOB", "Date of Birth", "Birth Date"):
+                if cand in recipient_data and recipient_data[cand] is not None and str(recipient_data[cand]).strip():
+                    return str(recipient_data[cand]).strip()
+            for k, v in recipient_data.items():
+                k_low = k.lower()
+                if any(term in k_low for term in ["dob", "birth", "d.o.b", "d_o_b"]) and v and str(v).strip():
                     return str(v).strip()
 
         # 5. Department Aliases

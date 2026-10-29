@@ -1,5 +1,6 @@
 import csv
 import io
+import datetime
 from typing import List, Dict, Any, Tuple
 import openpyxl
 from sqlalchemy.orm import Session
@@ -39,6 +40,29 @@ SYNONYM_MAP = {
     "last_name": "recipient_name",
     "username": "recipient_name",
     
+    # Department / Academic Branch
+    "department": "department",
+    "dept": "department",
+    "branch": "department",
+    "stream": "department",
+    "discipline": "department",
+    "major": "department",
+    "department_name": "department",
+    "dept_name": "department",
+    "degree_branch": "department",
+
+    # Date of Birth (DOB) synonyms
+    "dob": "dob",
+    "d_o_b": "dob",
+    "d.o.b": "dob",
+    "d.o.b.": "dob",
+    "date_of_birth": "dob",
+    "birth_date": "dob",
+    "birthdate": "dob",
+    "birthday": "dob",
+    "date of birth": "dob",
+    "birth date": "dob",
+
     # Email synonyms
     "mail": "email",
     "email_address": "email",
@@ -55,16 +79,9 @@ SYNONYM_MAP = {
     "reg_no": "registration_id",
     "reg_id": "registration_id",
     "roll_no": "registration_id",
+    "rollno": "registration_id",
     "id": "registration_id",
     "certificate_id": "certificate_id",
-    
-    # Department / Academic Branch
-    "department": "department",
-    "dept": "department",
-    "branch": "department",
-    "stream": "department",
-    "discipline": "department",
-    "major": "department",
 
     # Organization / College / Institution
     "organization": "institution",
@@ -188,7 +205,14 @@ def parse_xlsx_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, 
             row_dict = {}
             for col_idx, h in enumerate(headers):
                 cell_val = row[col_idx] if col_idx < len(row) else ""
-                row_dict[h] = str(cell_val).strip() if cell_val is not None else ""
+                if cell_val is None:
+                    row_dict[h] = ""
+                elif isinstance(cell_val, (datetime.datetime, datetime.date)):
+                    row_dict[h] = cell_val.strftime("%Y-%m-%d")
+                elif isinstance(cell_val, float) and cell_val.is_integer():
+                    row_dict[h] = str(int(cell_val))
+                else:
+                    row_dict[h] = str(cell_val).strip()
             data_rows.append(row_dict)
             
     return headers, data_rows

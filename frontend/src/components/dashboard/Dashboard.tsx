@@ -168,16 +168,21 @@ export const Dashboard: React.FC = () => {
               >
                 {/* Visual miniature canvas */}
                 <div
-                  style={{ backgroundColor: tpl.background_color || '#FCFAF5' }}
+                  style={{ 
+                    backgroundColor: tpl.background_color || '#FCFAF5',
+                    backgroundImage: tpl.background_asset_url ? `url(${tpl.background_asset_url})` : undefined,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
                   className="w-full h-24 rounded-lg border border-slate-200 relative p-2.5 flex flex-col justify-between overflow-hidden shadow-2xs"
                 >
-                  <div className="text-[9px] font-bold text-slate-800 tracking-tight truncate max-w-[150px]">
+                  <div className={`text-[9px] font-bold tracking-tight truncate max-w-[150px] ${tpl.background_asset_url ? 'bg-white/90 px-1.5 py-0.5 rounded text-slate-900 shadow-xs' : 'text-slate-800'}`}>
                     {tpl.name}
                   </div>
-                  <div className="text-[8px] text-slate-400 font-mono">
+                  <div className={`text-[8px] font-mono ${tpl.background_asset_url ? 'bg-white/90 px-1.5 py-0.5 rounded text-slate-700 w-fit shadow-xs' : 'text-slate-400'}`}>
                     {tpl.page_format.replace('_', ' ')}
                   </div>
-                  <div className="flex items-center justify-between text-[7px] text-slate-400">
+                  <div className={`flex items-center justify-between text-[7px] ${tpl.background_asset_url ? 'bg-white/90 px-1.5 py-0.5 rounded text-slate-700 shadow-xs' : 'text-slate-400'}`}>
                     <span>{tpl.elements?.length || 0} Canvas Elements</span>
                     <span className="text-brand-600 font-semibold">300 DPI</span>
                   </div>

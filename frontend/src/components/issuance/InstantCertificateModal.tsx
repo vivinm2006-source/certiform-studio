@@ -17,7 +17,9 @@ export const InstantCertificateModal: React.FC<InstantCertificateModalProps> = (
   const [formData, setFormData] = useState({
     recipient_name: 'Dr. Sarah Jenkins',
     email: 'sarah.jenkins@stanford.edu',
-    institution: 'Department of Computer Science',
+    institution: 'Stanford University',
+    department: 'Department of Computer Science',
+    dob: '1998-05-14',
     award_title: 'Excellence in AI & Quantum Computing',
     event_name: 'Annual Leadership Conference 2026',
     event_date: 'October 27, 2026',
@@ -150,30 +152,60 @@ export const InstantCertificateModal: React.FC<InstantCertificateModalProps> = (
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Institution / Department
-                </label>
-                <input
-                  type="text"
-                  value={formData.institution}
-                  onChange={(e) => handleInputChange('institution', e.target.value)}
-                  placeholder="e.g. Department of Computer Science"
-                  className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none shadow-2xs"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700 block">
+                    Institution / University
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.institution}
+                    onChange={(e) => handleInputChange('institution', e.target.value)}
+                    placeholder="e.g. Stanford University"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none shadow-2xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700 block">
+                    Department / Branch
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.department}
+                    onChange={(e) => handleInputChange('department', e.target.value)}
+                    placeholder="e.g. Computer Science"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none shadow-2xs"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Award / Recognition Honor
-                </label>
-                <input
-                  type="text"
-                  value={formData.award_title}
-                  onChange={(e) => handleInputChange('award_title', e.target.value)}
-                  placeholder="e.g. Excellence in AI Research"
-                  className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none shadow-2xs"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700 block">
+                    Date of Birth (DOB)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.dob}
+                    onChange={(e) => handleInputChange('dob', e.target.value)}
+                    placeholder="e.g. 1998-05-14"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none shadow-2xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700 block">
+                    Award / Recognition Honor
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.award_title}
+                    onChange={(e) => handleInputChange('award_title', e.target.value)}
+                    placeholder="e.g. Excellence in AI Research"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none shadow-2xs"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -338,6 +370,7 @@ export const InstantCertificateModal: React.FC<InstantCertificateModalProps> = (
                   {formData.recipient_name || 'Recipient Name'}
                 </div>
                 <p className="text-[7.5px] text-slate-600 mt-1 max-w-[85%] mx-auto leading-relaxed italic">
+                  {formData.department ? <span className="font-semibold text-slate-800">{formData.department} &bull; </span> : null}
                   in recognition of distinguished participation and outstanding academic contributions to the{' '}
                   <span className="font-semibold text-slate-800">{formData.event_name}</span> on{' '}
                   <span className="font-semibold text-slate-800">{formData.event_date}</span>.

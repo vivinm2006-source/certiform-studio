@@ -124,7 +124,7 @@ async def parse_spreadsheet_file(project_id: str, file: UploadFile = File(...), 
         
     # Get available binding keys from project forms
     form = db.query(Form).filter(Form.project_id == project_id).first()
-    available_keys = ["recipient_name", "department", "event_name", "event_date", "institution", "venue", "email", "registration_id"]
+    available_keys = ["recipient_name", "department", "dob", "date_of_birth", "event_name", "event_date", "institution", "venue", "email", "registration_id"]
     if form and form.fields:
         available_keys = list(set([f.binding_key for f in form.fields] + available_keys))
         
@@ -163,27 +163,22 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
     
     created_recipients = []
     for r in rows:
-        # 1. Retain all raw spreadsheet columns
+        # 1. Retain raw spreadsheet columns with clean values (NO duplicate lower/underscore keys)
         mapped_data = {}
         for col_name, col_val in r.items():
-            if col_val is not None:
+            if col_name and col_val is not None:
                 val_str = str(col_val).strip()
-                mapped_data[col_name] = val_str
-                mapped_data[col_name.lower()] = val_str
-                mapped_data[col_name.lower().replace(" ", "_")] = val_str
+                mapped_data[col_name.strip()] = val_str
 
-        # 2. Apply explicit user column mappings
+        # 2. Apply explicit user column mappings cleanly
         for file_col, target_key in mapping.items():
-            if target_key:
+            if target_key and file_col in r:
                 val = r.get(file_col)
                 if val is not None:
                     val_str = str(val).strip()
-                    mapped_data[target_key] = val_str
-                    mapped_data[target_key.lower()] = val_str
-                    mapped_data[target_key.lower().replace(" ", "_")] = val_str
+                    mapped_data[target_key.strip()] = val_str
 
-        # 3. Smart Name Detection & Auto-Aliasing:
-        # Guarantee recipient_name, full_name, and name are ALWAYS populated
+        # 3. Smart Name Detection & Canonical Population
         detected_name = (
             mapped_data.get("recipient_name") or
             mapped_data.get("full_name") or
@@ -197,20 +192,16 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
             mapped_data.get("attendee_name") or
             mapped_data.get("first_name")
         )
-        
-        # If not matched yet, check column keys that contain person terms
         if not detected_name:
             for k, v in r.items():
                 k_lower = k.lower()
                 if any(term in k_lower for term in ["student", "candidate", "participant", "recipient", "person", "member"]) and v and str(v).strip():
                     detected_name = str(v).strip()
                     break
-                    
-        # Check general 'name' column while ignoring event/college/institution/department names
         if not detected_name:
             for k, v in r.items():
                 k_lower = k.lower()
-                if any(skip in k_lower for skip in ["event", "topic", "session", "workshop", "college", "institute", "dept", "department", "school", "faculty"]):
+                if any(skip in k_lower for skip in ["event", "topic", "session", "workshop", "college", "institute", "dept", "department", "school", "faculty", "venue", "dob", "birth", "date"]):
                     continue
                 if "name" in k_lower and v is not None and str(v).strip():
                     detected_name = str(v).strip()
@@ -218,8 +209,37 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
 
         if detected_name:
             mapped_data["recipient_name"] = detected_name
-            mapped_data["name"] = detected_name
-            mapped_data["full_name"] = detected_name
+
+        # 4. Department Detection & Canonical Population
+        detected_dept = (
+            mapped_data.get("department") or
+            mapped_data.get("dept") or
+            mapped_data.get("branch")
+        )
+        if not detected_dept:
+            for k, v in r.items():
+                k_lower = k.lower()
+                if any(term in k_lower for term in ["department", "dept", "branch", "stream", "discipline", "major"]) and v and str(v).strip():
+                    detected_dept = str(v).strip()
+                    break
+        if detected_dept:
+            mapped_data["department"] = detected_dept
+
+        # 5. Date of Birth (DOB) Detection & Canonical Population
+        detected_dob = (
+            mapped_data.get("dob") or
+            mapped_data.get("date_of_birth") or
+            mapped_data.get("birth_date") or
+            mapped_data.get("birthday")
+        )
+        if not detected_dob:
+            for k, v in r.items():
+                k_lower = k.lower()
+                if any(term in k_lower for term in ["dob", "birth", "d.o.b", "d_o_b"]) and v and str(v).strip():
+                    detected_dob = str(v).strip()
+                    break
+        if detected_dob:
+            mapped_data["dob"] = detected_dob
                 
         rec = Recipient(
             project_id=project_id,

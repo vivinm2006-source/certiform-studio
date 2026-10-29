@@ -62,8 +62,18 @@ function resolveText(templateStr: string | undefined, data: Record<string, any>,
     }
     
     // Date aliases
-    if (val === undefined && cleanKey.toLowerCase().includes('date')) {
+    if (val === undefined && cleanKey.toLowerCase().includes('date') && !cleanKey.toLowerCase().includes('birth')) {
       for (const cand of ['event_date', 'date', 'Date', 'event date']) {
+        if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
+          val = merged[cand];
+          break;
+        }
+      }
+    }
+
+    // Date of Birth aliases
+    if (val === undefined && (cleanKey.toLowerCase().includes('dob') || cleanKey.toLowerCase().includes('birth'))) {
+      for (const cand of ['dob', 'date_of_birth', 'birth_date', 'birthdate', 'DOB', 'Date of Birth']) {
         if (merged[cand] !== undefined && String(merged[cand]).trim() !== '') {
           val = merged[cand];
           break;
@@ -157,6 +167,15 @@ function resolveDynamicValue(
     }
   }
 
+  // 5b. Date of Birth (DOB) fallback
+  if (bindingKey && ['dob', 'date_of_birth', 'birth_date', 'birthdate'].includes(bindingKey.toLowerCase())) {
+    for (const cand of ['dob', 'date_of_birth', 'birth_date', 'birthdate', 'DOB', 'Date of Birth', 'Birth Date']) {
+      if (data[cand] !== undefined && String(data[cand]).trim() !== '') {
+        return String(data[cand]);
+      }
+    }
+  }
+
   // 6. Event Name / Topic fallback
   if (bindingKey && ['event_name', 'topic', 'session'].includes(bindingKey.toLowerCase())) {
     for (const cand of ['event_name', 'session_topic', 'Session Topic', 'topic', 'Topic', 'event', 'Event']) {
@@ -209,6 +228,7 @@ export const CanvasWorkspace: React.FC = () => {
     full_name: 'Student Name',
     student_name: 'Student Name',
     department: 'Department of Artificial Intelligence and Machine Learning (AI & ML)',
+    dob: '2004-05-14',
     event_name: 'STARTUP & ENTREPRENEURSHIP',
     session_topic: 'STARTUP & ENTREPRENEURSHIP',
     event_date: '26/10/2026',
@@ -230,7 +250,7 @@ export const CanvasWorkspace: React.FC = () => {
     }
   };
 
-  const handleUpdateCertificateWord = (field: 'name' | 'topic' | 'dept' | 'date' | 'venue' | 'title' | 'signatory', value: string) => {
+  const handleUpdateCertificateWord = (field: 'name' | 'topic' | 'dept' | 'dob' | 'date' | 'venue' | 'title' | 'signatory', value: string) => {
     if (field === 'name') {
       updateActiveRecipientData('recipient_name', value);
       if (studentElement) updateElementProps(studentElement.id, { content: value });
@@ -246,6 +266,13 @@ export const CanvasWorkspace: React.FC = () => {
       const el = activeTemplate?.elements.find(e => 
         e.binding_key === 'department' || 
         (e.content && e.content.toLowerCase().includes('department'))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'dob') {
+      updateActiveRecipientData('dob', value);
+      const el = activeTemplate?.elements.find(e => 
+        e.binding_key === 'dob' || e.binding_key === 'date_of_birth' ||
+        (e.content && (e.content.toLowerCase().includes('dob') || e.content.toLowerCase().includes('birth')))
       );
       if (el) updateElementProps(el.id, { content: value });
     } else if (field === 'date') {
@@ -1371,6 +1398,18 @@ export const CanvasWorkspace: React.FC = () => {
                 value={recData.department || ''}
                 onChange={(e) => handleUpdateCertificateWord('dept', e.target.value)}
                 placeholder="e.g. Department of Artificial Intelligence and Machine Learning (AI & ML)"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {/* Date of Birth (DOB) */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-700 block">Date of Birth (DOB)</label>
+              <input
+                type="text"
+                value={recData.dob || recData.date_of_birth || ''}
+                onChange={(e) => handleUpdateCertificateWord('dob', e.target.value)}
+                placeholder="e.g. 15/08/2004 or 2004-08-15"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />
             </div>
