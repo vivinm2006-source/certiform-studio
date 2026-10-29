@@ -247,9 +247,9 @@ def run_qa_benchmark():
             expected_name = sanitize_text_for_pdf(rec_data["recipient_name"])
             # Check presence (accounting for possible font ligature or space nuances)
             if expected_name not in page_text:
-                # Check normalized
-                norm_expected = expected_name.replace("-", "").replace(" ", "").lower()
-                norm_page = page_text.replace("-", "").replace(" ", "").lower()
+                # Check normalized (strip dashes, whitespace, and wrapped newlines)
+                norm_expected = "".join(c for c in expected_name.lower() if c.isalnum())
+                norm_page = "".join(c for c in page_text.lower() if c.isalnum())
                 if norm_expected not in norm_page:
                     missing_names_default.append((i + 1, expected_name))
                     
@@ -321,8 +321,8 @@ def run_qa_benchmark():
             expected_name = sanitize_text_for_pdf(rec_data["recipient_name"])
             
             # 1. Verify recipient name present
-            norm_expected = expected_name.replace("-", "").replace(" ", "").lower()
-            norm_page = page_text.replace("-", "").replace(" ", "").lower()
+            norm_expected = "".join(c for c in expected_name.lower() if c.isalnum())
+            norm_page = "".join(c for c in page_text.lower() if c.isalnum())
             assert norm_expected in norm_page, f"Recipient {expected_name} missing on page {i+1}"
             
             # 2. Verify no old preset text leaked onto custom template

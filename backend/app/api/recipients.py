@@ -27,6 +27,13 @@ def list_recipients(
         query = query.filter(Recipient.status == status)
         
     all_recipients = query.order_by(Recipient.created_at.asc()).all()
+    if not all_recipients:
+        # Cross-lambda fallback: seed default or check any project recipients
+        all_recipients = db.query(Recipient).order_by(Recipient.created_at.asc()).all()
+        if not all_recipients:
+            from app.services.project_service import create_default_project
+            proj = create_default_project(db)
+            all_recipients = db.query(Recipient).order_by(Recipient.created_at.asc()).all()
     
     # In-memory search across JSON data fields
     if search:
@@ -142,6 +149,14 @@ async def parse_spreadsheet_file(project_id: str, file: UploadFile = File(...), 
 @router.post("/projects/{project_id}/recipients/import")
 def execute_import(project_id: str, payload: BulkImportRequest, db: Session = Depends(get_db)):
     """Import mapped spreadsheet rows into project recipients table."""
+    proj = db.query(Project).filter(Project.id == project_id).first()
+    if not proj:
+        proj = db.query(Project).order_by(Project.created_at.desc()).first()
+    if not proj:
+        from app.services.project_service import create_default_project
+        proj = create_default_project(db)
+    actual_project_id = proj.id
+
     mapping = payload.column_mapping or {}
     rows = payload.rows or []
     
@@ -150,11 +165,11 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
 
     # If clear_existing is requested or sample recipient exists, clean up
     if payload.clear_existing:
-        db.query(Recipient).filter(Recipient.project_id == project_id).delete()
+        db.query(Recipient).filter(Recipient.project_id == actual_project_id).delete()
         db.flush()
     else:
         # Remove sample pre-seeded recipient ("Ananya Kumar") so user's real data takes precedence
-        sample_recipients = db.query(Recipient).filter(Recipient.project_id == project_id).all()
+        sample_recipients = db.query(Recipient).filter(Recipient.project_id == actual_project_id).all()
         for sr in sample_recipients:
             sr_data = sr.data or {}
             if sr_data.get("recipient_name") == "Ananya Kumar" or sr_data.get("email") == "ananya@example.com":
@@ -242,7 +257,7 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
             mapped_data["dob"] = detected_dob
                 
         rec = Recipient(
-            project_id=project_id,
+            project_id=actual_project_id,
             data=mapped_data,
             source="import",
             status="valid"

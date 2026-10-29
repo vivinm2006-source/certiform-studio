@@ -235,7 +235,6 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
   ];
 
   const handleCreateFromPreset = async () => {
-    if (!currentProject) return;
     setIsSubmitting(true);
     const chosenPreset = presets.find((p) => p.id === selectedPreset) || presets[0];
     const chosenFormat = pageFormats.find((f) => f.id === pageFormat) || pageFormats[0];
@@ -259,7 +258,7 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
   };
 
   const handleUploadCustomFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0] || !currentProject) return;
+    if (!e.target.files || !e.target.files[0]) return;
     const file = e.target.files[0];
     setIsUploadingCustom(true);
 
@@ -292,9 +291,14 @@ export const TemplateGalleryModal: React.FC<TemplateGalleryModalProps> = ({ isOp
           setIsUploadingCustom(false);
           onClose();
         } catch (innerErr: any) {
+          console.error('Custom template error:', innerErr);
           setIsUploadingCustom(false);
           alert(innerErr.message || 'Failed to initialize custom template');
         }
+      };
+      reader.onerror = () => {
+        setIsUploadingCustom(false);
+        alert('Failed to read image file');
       };
       reader.readAsDataURL(file);
     } catch (err: any) {

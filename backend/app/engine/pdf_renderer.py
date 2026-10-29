@@ -438,7 +438,20 @@ def render_certificate_pdf(
     
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=(width_pt, height_pt))
-    c.setTitle(f"Certificate - {credential_id or 'Preview'}")
+    r_data = dict(recipient_data or {})
+    raw_name = (
+        r_data.get("recipient_name") or
+        r_data.get("student_name") or
+        r_data.get("full_name") or
+        r_data.get("name") or
+        r_data.get("participant_name") or
+        r_data.get("Student Name") or
+        r_data.get("Full Name") or
+        r_data.get("Name") or
+        "Certificate"
+    )
+    doc_title = str(raw_name).strip() or "Certificate"
+    c.setTitle(doc_title)
     c.setAuthor("CertiForm Studio")
     
     render_page_to_canvas(c, template_dict, elements, recipient_data, credential_id, public_base_url)

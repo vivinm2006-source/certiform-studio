@@ -92,11 +92,18 @@ export const IssuanceCenter: React.FC = () => {
       console.error('Download failed, using direct recipient endpoint fallback:', err);
       const tplId = activeTemplate?.id;
       const tplQuery = tplId ? `?template_id=${tplId}` : '';
-      if (activeRec?.id) {
-        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf${tplQuery}`;
-      } else {
-        alert('Download failed: ' + (err.message || 'Please check connection'));
-      }
+      const fallbackUrl = activeRec?.id
+        ? `/api/v1/recipients/${activeRec.id}/export-pdf${tplQuery}`
+        : currentProject
+        ? `/api/v1/projects/${currentProject.id}/export/bulk-pdf${tplQuery}`
+        : `/api/v1/recipients/default/export-pdf${tplQuery}`;
+      const a = document.createElement('a');
+      a.href = fallbackUrl;
+      const personName = recData.recipient_name || recData.full_name || recData.name || 'Certificate';
+      a.download = `${String(personName).trim().replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 2000);
       setIsDownloadingSingle(false);
     }
   };
@@ -125,11 +132,18 @@ export const IssuanceCenter: React.FC = () => {
       console.error('Download failed, using direct endpoint fallback:', err);
       const tplId = activeTemplate?.id;
       const tplQuery = tplId ? `?template_id=${tplId}` : '';
-      if (activeRec?.id) {
-        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png${tplQuery}`;
-      } else {
-        alert('Download failed: ' + (err.message || 'Please check connection'));
-      }
+      const fallbackUrl = activeRec?.id
+        ? `/api/v1/recipients/${activeRec.id}/export-png${tplQuery}`
+        : currentProject
+        ? `/api/v1/projects/${currentProject.id}/export/bulk-png${tplQuery}`
+        : `/api/v1/recipients/default/export-png${tplQuery}`;
+      const a = document.createElement('a');
+      a.href = fallbackUrl;
+      const personName = recData.recipient_name || recData.full_name || recData.name || 'Certificate';
+      a.download = `${String(personName).trim().replace(/\s+/g, '_')}.png`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 2000);
       setIsDownloadingSingle(false);
     }
   };
@@ -139,17 +153,21 @@ export const IssuanceCenter: React.FC = () => {
     if (!currentProject) return;
     setDownloadingMode(mode);
     setIsSubmittingJob(true);
+    let defaultName = `certificates_consolidated_${currentProject.id.slice(0, 8)}.pdf`;
+    if (mode === 'zip_pdf') {
+      defaultName = `certificates_pdf_bundle_${currentProject.id.slice(0, 8)}.zip`;
+    } else if (mode === 'zip_png') {
+      defaultName = `certificates_png_bundle_${currentProject.id.slice(0, 8)}.zip`;
+    }
+
     try {
       const tplId = activeTemplate?.id;
       const tplQuery = tplId ? `?template_id=${tplId}` : '';
       let exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-pdf${tplQuery}`;
-      let defaultName = `certificates_consolidated_${currentProject.id.slice(0, 8)}.pdf`;
       if (mode === 'zip_pdf') {
         exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-zip${tplQuery}`;
-        defaultName = `certificates_pdf_bundle_${currentProject.id.slice(0, 8)}.zip`;
       } else if (mode === 'zip_png') {
         exportUrl = `/api/v1/projects/${currentProject.id}/export/bulk-png${tplQuery}`;
-        defaultName = `certificates_png_bundle_${currentProject.id.slice(0, 8)}.zip`;
       }
 
       // Trigger background issuance tracking so credentials are logged and recorded in database
@@ -169,14 +187,22 @@ export const IssuanceCenter: React.FC = () => {
       a.download = defaultName;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 30000);
       useProjectStore.getState().refreshRecipients();
     } catch (err: any) {
       console.warn('Direct stream notice, redirecting to file endpoint:', err);
       const tplId = activeTemplate?.id;
       const tplQuery = tplId ? `?template_id=${tplId}` : '';
-      window.location.href = `/api/v1/projects/${currentProject.id}/export/${mode === 'consolidated_pdf' ? 'bulk-pdf' : mode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplQuery}`;
+      const fallbackUrl = `/api/v1/projects/${currentProject.id}/export/${mode === 'consolidated_pdf' ? 'bulk-pdf' : mode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplQuery}`;
+      const a = document.createElement('a');
+      a.href = fallbackUrl;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 2000);
     } finally {
       setIsSubmittingJob(false);
       setDownloadingMode(null);

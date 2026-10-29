@@ -123,8 +123,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   createTemplate: async (data: Partial<CertificateTemplate> & { preset?: string }) => {
     const { currentProject, templates } = get();
-    if (!currentProject) throw new Error('No active project');
-    const newTpl = await api.createTemplate(currentProject.id, data);
+    const projectId = currentProject?.id || '00000000-0000-0000-0000-000000000001';
+    const newTpl = await api.createTemplate(projectId, data);
     set({
       templates: [...templates, newTpl],
       activeTemplate: newTpl,

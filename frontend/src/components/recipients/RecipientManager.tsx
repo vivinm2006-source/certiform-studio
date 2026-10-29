@@ -13,7 +13,7 @@ export const RecipientManager: React.FC = () => {
   const { 
     currentProject, recipients, activeRecipientIndex, 
     setActiveRecipientIndex, updateRecipientCell, refreshRecipients,
-    setActiveWorkspace, setQuickCreateOpen 
+    setActiveWorkspace, setQuickCreateOpen, activeTemplate
   } = useProjectStore();
 
   const [search, setSearch] = useState('');
@@ -357,7 +357,7 @@ export const RecipientManager: React.FC = () => {
                   <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center space-x-1">
                       <a
-                        href={`/api/v1/recipients/${rec.id}/export-pdf`}
+                        href={`/api/v1/recipients/${rec.id}/export-pdf?template_id=${activeTemplate?.id || ''}`}
                         download
                         className="p-1 text-slate-400 hover:text-emerald-600 rounded hover:bg-emerald-50"
                         title="Download Certificate as Vector PDF"

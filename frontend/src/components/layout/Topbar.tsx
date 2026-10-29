@@ -16,6 +16,77 @@ export const Topbar: React.FC = () => {
   
   const { isSaving, lastSavedAt } = useCanvasStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const curRec = recipients[activeRecipientIndex];
+      const recData = curRec?.data || {
+        recipient_name: 'Student Name',
+        full_name: 'Student Name',
+        department: 'Department of Computer Science & Engineering',
+        event_name: 'Vanexa Tech Hub Summit',
+        event_date: new Date().toLocaleDateString('en-GB')
+      };
+
+      if (activeTemplate) {
+        const resp = await fetch('/api/v1/render/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template: {
+              width_pt: activeTemplate.width_pt,
+              height_pt: activeTemplate.height_pt,
+              background_color: activeTemplate.background_color,
+              background_asset_url: activeTemplate.background_asset_url,
+            },
+            elements: activeTemplate.elements,
+            recipient_data: recData,
+            format: 'pdf',
+            credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
+          }),
+        });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const personName = recData.recipient_name || recData.full_name || recData.name || recData.student_name || 'Certificate';
+          a.download = `${String(personName).trim().replace(/\s+/g, '_')}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          }, 30000);
+          return;
+        }
+      }
+
+      // Direct fallback
+      const tplId = activeTemplate?.id;
+      const tplQuery = tplId ? `?template_id=${tplId}` : '';
+      const fallbackUrl = curRec?.id
+        ? `/api/v1/recipients/${curRec.id}/export-pdf${tplQuery}`
+        : currentProject
+        ? `/api/v1/projects/${currentProject.id}/export/bulk-pdf${tplQuery}`
+        : `/api/v1/recipients/default/export-pdf${tplQuery}`;
+
+      const a = document.createElement('a');
+      a.href = fallbackUrl;
+      const personName = recData.recipient_name || recData.full_name || recData.name || 'Certificate';
+      a.download = `${String(personName).trim().replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 2000);
+    } catch (err: any) {
+      console.error('PDF export failed:', err);
+      alert('PDF export failed: ' + (err.message || 'Please check network'));
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   const totalRecipients = recipients.length;
   const currentRecipient = recipients[activeRecipientIndex];
@@ -126,22 +197,12 @@ export const Topbar: React.FC = () => {
 
           {/* Direct PDF Download Button */}
           <button
-            onClick={() => {
-              const curRec = recipients[activeRecipientIndex];
-              const tplId = activeTemplate?.id;
-              const tplQuery = tplId ? `?template_id=${tplId}` : '';
-              if (curRec?.id) {
-                window.location.href = `/api/v1/recipients/${curRec.id}/export-pdf${tplQuery}`;
-              } else if (currentProject) {
-                window.location.href = `/api/v1/projects/${currentProject.id}/export/bulk-pdf${tplQuery}`;
-              } else {
-                setActiveWorkspace('issuance');
-              }
-            }}
-            className="flex items-center space-x-1 sm:space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+            onClick={handleDownloadPdf}
+            disabled={isExportingPdf}
+            className="flex items-center space-x-1 sm:space-x-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm transition-colors"
             title="Download Active Certificate as Vector PDF"
           >
-            <Download className="h-3.5 w-3.5" />
+            {isExportingPdf ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">Download PDF</span>
             <span className="sm:hidden text-[11px]">PDF</span>
           </button>
