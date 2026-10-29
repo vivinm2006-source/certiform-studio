@@ -430,16 +430,23 @@ def create_instant_certificate(project_id: str, payload: Dict[str, Any], db: Ses
     }
 
 @router.get("/recipients/{recipient_id}/export-pdf")
-def export_recipient_pdf(recipient_id: str, db: Session = Depends(get_db)):
+def export_recipient_pdf(recipient_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Export single recipient certificate directly as vector PDF."""
     recipient = db.query(Recipient).filter(Recipient.id == recipient_id).first()
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
         
-    template = db.query(CertificateTemplate).filter(
-        CertificateTemplate.project_id == recipient.project_id,
-        CertificateTemplate.is_active == True
-    ).first()
+    template = None
+    if template_id:
+        template = db.query(CertificateTemplate).filter(
+            CertificateTemplate.id == template_id,
+            CertificateTemplate.project_id == recipient.project_id
+        ).first()
+    if not template:
+        template = db.query(CertificateTemplate).filter(
+            CertificateTemplate.project_id == recipient.project_id,
+            CertificateTemplate.is_active == True
+        ).first()
     if not template:
         template = db.query(CertificateTemplate).filter(CertificateTemplate.project_id == recipient.project_id).first()
     if not template:
@@ -474,24 +481,43 @@ def export_recipient_pdf(recipient_id: str, db: Session = Depends(get_db)):
         template_data, elements_data, recipient.data or {}, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL
     )
     
-    name_clean = str(recipient.data.get("recipient_name", "Certificate")).replace(" ", "_")
+    r_data = dict(recipient.data or {})
+    raw_name = (
+        r_data.get("recipient_name") or
+        r_data.get("student_name") or
+        r_data.get("full_name") or
+        r_data.get("name") or
+        r_data.get("participant_name") or
+        r_data.get("Student Name") or
+        r_data.get("Full Name") or
+        r_data.get("Name") or
+        "Certificate"
+    )
+    name_clean = "".join(c for c in str(raw_name) if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_") or "Certificate"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={name_clean}_certificate.pdf"}
+        headers={"Content-Disposition": f'attachment; filename="{name_clean}.pdf"'}
     )
 
 @router.get("/recipients/{recipient_id}/export-png")
-def export_recipient_png(recipient_id: str, db: Session = Depends(get_db)):
+def export_recipient_png(recipient_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Export single recipient certificate directly as high-res 300 DPI PNG."""
     recipient = db.query(Recipient).filter(Recipient.id == recipient_id).first()
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
         
-    template = db.query(CertificateTemplate).filter(
-        CertificateTemplate.project_id == recipient.project_id,
-        CertificateTemplate.is_active == True
-    ).first()
+    template = None
+    if template_id:
+        template = db.query(CertificateTemplate).filter(
+            CertificateTemplate.id == template_id,
+            CertificateTemplate.project_id == recipient.project_id
+        ).first()
+    if not template:
+        template = db.query(CertificateTemplate).filter(
+            CertificateTemplate.project_id == recipient.project_id,
+            CertificateTemplate.is_active == True
+        ).first()
     if not template:
         template = db.query(CertificateTemplate).filter(CertificateTemplate.project_id == recipient.project_id).first()
     if not template:
@@ -528,9 +554,21 @@ def export_recipient_png(recipient_id: str, db: Session = Depends(get_db)):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     
-    name_clean = str(recipient.data.get("recipient_name", "Certificate")).replace(" ", "_")
+    r_data = dict(recipient.data or {})
+    raw_name = (
+        r_data.get("recipient_name") or
+        r_data.get("student_name") or
+        r_data.get("full_name") or
+        r_data.get("name") or
+        r_data.get("participant_name") or
+        r_data.get("Student Name") or
+        r_data.get("Full Name") or
+        r_data.get("Name") or
+        "Certificate"
+    )
+    name_clean = "".join(c for c in str(raw_name) if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_") or "Certificate"
     return Response(
         content=buf.getvalue(),
         media_type="image/png",
-        headers={"Content-Disposition": f"attachment; filename={name_clean}_certificate.png"}
+        headers={"Content-Disposition": f'attachment; filename="{name_clean}.png"'}
     )

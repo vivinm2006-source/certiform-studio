@@ -79,7 +79,8 @@ export const IssuanceCenter: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${recData.recipient_name || 'Certificate'}.pdf`;
+      const personName = recData.recipient_name || recData.full_name || recData.name || recData.student_name || 'Certificate';
+      a.download = `${String(personName).trim().replace(/\s+/g, '_')}.pdf`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
@@ -89,8 +90,10 @@ export const IssuanceCenter: React.FC = () => {
       setIsDownloadingSingle(false);
     } catch (err: any) {
       console.error('Download failed, using direct recipient endpoint fallback:', err);
+      const tplId = activeTemplate?.id;
+      const tplQuery = tplId ? `?template_id=${tplId}` : '';
       if (activeRec?.id) {
-        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf`;
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf${tplQuery}`;
       } else {
         alert('Download failed: ' + (err.message || 'Please check connection'));
       }
@@ -112,15 +115,18 @@ export const IssuanceCenter: React.FC = () => {
       });
       const a = document.createElement('a');
       a.href = resp.data_url;
-      a.download = `${recData.recipient_name || 'Certificate'}.png`;
+      const personName = recData.recipient_name || recData.full_name || recData.name || recData.student_name || 'Certificate';
+      a.download = `${String(personName).trim().replace(/\s+/g, '_')}.png`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => document.body.removeChild(a), 30000);
       setIsDownloadingSingle(false);
     } catch (err: any) {
       console.error('Download failed, using direct endpoint fallback:', err);
+      const tplId = activeTemplate?.id;
+      const tplQuery = tplId ? `?template_id=${tplId}` : '';
       if (activeRec?.id) {
-        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png`;
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png${tplQuery}`;
       } else {
         alert('Download failed: ' + (err.message || 'Please check connection'));
       }

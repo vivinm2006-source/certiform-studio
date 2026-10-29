@@ -11,7 +11,7 @@ export const Topbar: React.FC = () => {
   const { 
     currentProject, activeWorkspace, setActiveWorkspace, 
     recipients, activeRecipientIndex, setActiveRecipientIndex,
-    setQuickCreateOpen 
+    setQuickCreateOpen, activeTemplate
   } = useProjectStore();
   
   const { isSaving, lastSavedAt } = useCanvasStore();
@@ -128,10 +128,12 @@ export const Topbar: React.FC = () => {
           <button
             onClick={() => {
               const curRec = recipients[activeRecipientIndex];
+              const tplId = activeTemplate?.id;
+              const tplQuery = tplId ? `?template_id=${tplId}` : '';
               if (curRec?.id) {
-                window.location.href = `/api/v1/recipients/${curRec.id}/export-pdf`;
+                window.location.href = `/api/v1/recipients/${curRec.id}/export-pdf${tplQuery}`;
               } else if (currentProject) {
-                window.location.href = `/api/v1/projects/${currentProject.id}/export/bulk-pdf`;
+                window.location.href = `/api/v1/projects/${currentProject.id}/export/bulk-pdf${tplQuery}`;
               } else {
                 setActiveWorkspace('issuance');
               }
