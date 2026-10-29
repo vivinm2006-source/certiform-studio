@@ -124,7 +124,7 @@ async def parse_spreadsheet_file(project_id: str, file: UploadFile = File(...), 
         
     # Get available binding keys from project forms
     form = db.query(Form).filter(Form.project_id == project_id).first()
-    available_keys = ["recipient_name", "department", "dob", "date_of_birth", "event_name", "event_date", "institution", "venue", "email", "registration_id"]
+    available_keys = ["recipient_name", "department", "dob", "event_name", "event_date", "institution", "venue", "email", "registration_id"]
     if form and form.fields:
         available_keys = list(set([f.binding_key for f in form.fields] + available_keys))
         
