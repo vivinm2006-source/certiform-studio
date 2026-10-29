@@ -124,6 +124,26 @@ export const Topbar: React.FC = () => {
             )}
           </div>
 
+          {/* Direct PDF Download Button */}
+          <button
+            onClick={() => {
+              const curRec = recipients[activeRecipientIndex];
+              if (curRec?.id) {
+                window.location.href = `/api/v1/recipients/${curRec.id}/export-pdf`;
+              } else if (currentProject) {
+                window.location.href = `/api/v1/projects/${currentProject.id}/export/bulk-pdf`;
+              } else {
+                setActiveWorkspace('issuance');
+              }
+            }}
+            className="flex items-center space-x-1 sm:space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+            title="Download Active Certificate as Vector PDF"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Download PDF</span>
+            <span className="sm:hidden text-[11px]">PDF</span>
+          </button>
+
           {/* Instant Certificate Generator Trigger */}
           <button
             onClick={() => setQuickCreateOpen(true)}

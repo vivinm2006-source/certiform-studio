@@ -526,6 +526,9 @@ export const CanvasWorkspace: React.FC = () => {
           credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
         }),
       });
+      if (!resp.ok) {
+        throw new Error(`Server returned HTTP ${resp.status}`);
+      }
       const blob = await resp.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -533,10 +536,18 @@ export const CanvasWorkspace: React.FC = () => {
       a.download = `${recData.recipient_name || 'Certificate'}.pdf`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('PDF export failed:', err);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 30000);
+    } catch (err: any) {
+      console.error('PDF export failed, using direct endpoint fallback:', err);
+      const activeRec = recipients[activeRecipientIndex];
+      if (activeRec?.id) {
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf`;
+      } else {
+        alert('PDF download error: ' + (err.message || 'Please check connection'));
+      }
     } finally {
       setIsExporting(false);
     }
@@ -563,9 +574,15 @@ export const CanvasWorkspace: React.FC = () => {
       a.download = `${recData.recipient_name || 'Certificate'}.png`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('PNG export failed:', err);
+      setTimeout(() => document.body.removeChild(a), 30000);
+    } catch (err: any) {
+      console.error('PNG export failed, using direct fallback:', err);
+      const activeRec = recipients[activeRecipientIndex];
+      if (activeRec?.id) {
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png`;
+      } else {
+        alert('PNG download error: ' + (err.message || 'Please check connection'));
+      }
     } finally {
       setIsExporting(false);
     }

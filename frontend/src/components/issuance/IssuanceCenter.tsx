@@ -72,6 +72,9 @@ export const IssuanceCenter: React.FC = () => {
           credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
         }),
       });
+      if (!resp.ok) {
+        throw new Error(`Server returned HTTP ${resp.status}`);
+      }
       const blob = await resp.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -79,11 +82,18 @@ export const IssuanceCenter: React.FC = () => {
       a.download = `${recData.recipient_name || 'Certificate'}.pdf`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 30000);
       setIsDownloadingSingle(false);
-    } catch (err) {
-      console.error('Download failed:', err);
+    } catch (err: any) {
+      console.error('Download failed, using direct recipient endpoint fallback:', err);
+      if (activeRec?.id) {
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf`;
+      } else {
+        alert('Download failed: ' + (err.message || 'Please check connection'));
+      }
       setIsDownloadingSingle(false);
     }
   };
@@ -105,10 +115,15 @@ export const IssuanceCenter: React.FC = () => {
       a.download = `${recData.recipient_name || 'Certificate'}.png`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      setTimeout(() => document.body.removeChild(a), 30000);
       setIsDownloadingSingle(false);
-    } catch (err) {
-      console.error('Download failed:', err);
+    } catch (err: any) {
+      console.error('Download failed, using direct endpoint fallback:', err);
+      if (activeRec?.id) {
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png`;
+      } else {
+        alert('Download failed: ' + (err.message || 'Please check connection'));
+      }
       setIsDownloadingSingle(false);
     }
   };

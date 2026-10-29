@@ -54,8 +54,10 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
       a.download = filename;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 30000);
       setIsDownloading(false);
       onClose();
     } catch (err: any) {
@@ -75,8 +77,10 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
         a.download = defaultFilename;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(fUrl);
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(fUrl);
+        }, 30000);
         setIsDownloading(false);
         onClose();
       } catch (fErr: any) {

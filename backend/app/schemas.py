@@ -95,7 +95,7 @@ class CertificateTemplateBase(BaseModel):
     width_pt: float = 841.89
     height_pt: float = 595.28
     background_asset_url: Optional[str] = None
-    background_color: str = "#FFFFFF"
+    background_color: Optional[str] = "#FFFFFF"
     is_active: bool = True
 
 class CertificateTemplateCreate(CertificateTemplateBase):

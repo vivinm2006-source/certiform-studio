@@ -356,6 +356,14 @@ export const RecipientManager: React.FC = () => {
                   })}
                   <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center space-x-1">
+                      <a
+                        href={`/api/v1/recipients/${rec.id}/export-pdf`}
+                        download
+                        className="p-1 text-slate-400 hover:text-emerald-600 rounded hover:bg-emerald-50"
+                        title="Download Certificate as Vector PDF"
+                      >
+                        <Download className="h-3.5 w-3.5 text-emerald-600" />
+                      </a>
                       <button
                         onClick={() => {
                           setActiveRecipientIndex(rIdx);

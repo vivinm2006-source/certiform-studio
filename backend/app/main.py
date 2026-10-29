@@ -50,6 +50,13 @@ app.include_router(signatures.router, prefix="/v1")
 app.include_router(issuance.router, prefix="/v1")
 app.include_router(verification.router, prefix="/v1")
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    tb = traceback.format_exc()
+    print("GLOBAL EXCEPTION:", tb)
+    return JSONResponse(status_code=500, content={"detail": str(exc), "traceback": tb})
+
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
     return JSONResponse(
