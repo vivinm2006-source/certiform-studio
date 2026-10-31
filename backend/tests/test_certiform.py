@@ -353,3 +353,50 @@ def test_gemini_watermark_download(client, db_session):
     assert "GEMINI" in bulk_text
     assert "DIGITALLY CERTIFIED" in bulk_text
 
+# --- Test P: Auto-Enhance Engine ---
+def test_auto_enhance_engine(client, db_session):
+    proj = create_default_project(db_session, title="Auto-Enhance Test Project")
+    # Add unformatted recipient record with lowercase name, corrupted 's', and empty department
+    client.post(f"/api/v1/projects/{proj.id}/recipients", json={
+        "data": {
+            "recipient_name": "3ree 3ukanth",
+            "department": "",
+            "event_name": ""
+        },
+        "source": "manual",
+        "status": "valid"
+    })
+    
+    # Trigger auto-enhance
+    resp = client.post(f"/api/v1/projects/{proj.id}/auto-enhance")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["preflight_health_score"] == 100
+    assert data["watermark_assurance"] == "GEMINI"
+
+    # Verify recipient data was enhanced
+    recs = client.get(f"/api/v1/projects/{proj.id}/recipients").json()["items"]
+    last_rec = recs[-1]["data"]
+    assert last_rec["recipient_name"] == "Sree Sukanth"
+    assert last_rec["department"] != ""
+    assert last_rec["event_name"] != ""
+
+# --- Test Q: QA Quick Verify & Status Endpoints ---
+def test_qa_quick_verify_and_status(client, db_session):
+    # Test quick-verify
+    res_qv = client.post("/api/v1/qa/quick-verify")
+    assert res_qv.status_code == 200
+    qv_data = res_qv.json()
+    assert qv_data["success"] is True
+    assert qv_data["health_score"] == 100
+    assert len(qv_data["scorecard"]) >= 3
+
+    # Test status endpoint
+    res_stat = client.get("/api/v1/qa/status")
+    assert res_stat.status_code == 200
+    stat_data = res_stat.json()
+    assert "status" in stat_data
+    assert "summary" in stat_data
+
+

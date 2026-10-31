@@ -180,4 +180,54 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ updated_data, reason })
     }),
+
+  // Auto-Enhancing & Autonomous QA Testing
+  autoEnhanceProject: (projectId: string) =>
+    request<{
+      success: boolean;
+      message: string;
+      total_recipients: number;
+      cleaned_records: number;
+      casing_fixes: number;
+      gaps_filled: number;
+      credentials_created: number;
+      template_enhanced: boolean;
+      preflight_health_score: number;
+      watermark_assurance: string;
+    }>(`/projects/${projectId}/auto-enhance`, { method: 'POST' }),
+
+  runQATests: (mode: 'smoke' | 'load' | 'full', vus?: number, target_url?: string) =>
+    request<{
+      status: string;
+      mode: string;
+      max_vus: number;
+      target_url: string;
+      message: string;
+    }>('/qa/run-tests', {
+      method: 'POST',
+      body: JSON.stringify({ mode, vus: vus || 1000, target_url })
+    }),
+
+  getQAStatus: () =>
+    request<{
+      status: 'idle' | 'running' | 'completed' | 'failed';
+      mode: string | null;
+      start_time: number | null;
+      end_time: number | null;
+      duration_sec: number;
+      smoke_results?: any;
+      load_results?: any[];
+      acceptance_passed: boolean;
+      summary: string;
+      defect_analysis?: any;
+    }>('/qa/status'),
+
+  quickVerifyQA: () =>
+    request<{
+      success: boolean;
+      duration_ms: number;
+      scorecard: Array<{ component: string; status: string; error?: string; [key: string]: any }>;
+      health_score: number;
+      watermark_active: boolean;
+    }>('/qa/quick-verify', { method: 'POST' })
 };

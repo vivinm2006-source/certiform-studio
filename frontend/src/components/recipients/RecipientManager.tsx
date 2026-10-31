@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Upload, Download, Plus, Trash2, Search, 
   CheckCircle2, AlertCircle, FileSpreadsheet, Eye, 
-  ChevronLeft, ChevronRight, Filter, ArrowUpDown, Sparkles, FileText, Check 
+  ChevronLeft, ChevronRight, Filter, ArrowUpDown, Sparkles, FileText, Check, ShieldCheck 
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { api } from '../../services/api';
 import { Recipient } from '../../types';
 import { BulkQuantityPdfModal } from './BulkQuantityPdfModal';
+import { AutonomousQAModal } from '../qa/AutonomousQAModal';
 import { cleanCorruptedS, cleanRecordDict } from '../../utils/textCleaner';
 
 export const RecipientManager: React.FC = () => {
@@ -38,6 +39,8 @@ export const RecipientManager: React.FC = () => {
   const [clearExisting, setClearExisting] = useState(true);
   const [isCleaningS, setIsCleaningS] = useState(false);
   const [isFillingGaps, setIsFillingGaps] = useState(false);
+  const [isAutoEnhancing, setIsAutoEnhancing] = useState(false);
+  const [showQAModal, setShowQAModal] = useState(false);
   const [cleanMessage, setCleanMessage] = useState<string | null>(null);
 
   // Filtered rows
@@ -234,6 +237,20 @@ export const RecipientManager: React.FC = () => {
     window.location.href = `/api/v1/projects/${currentProject.id}/recipients/export`;
   };
 
+  const handleAutoEnhanceAll = async () => {
+    if (!currentProject) return;
+    setIsAutoEnhancing(true);
+    try {
+      const res = await api.autoEnhanceProject(currentProject.id);
+      await refreshRecipients();
+      alert(`Auto-Enhance Complete!\n- Total Recipients: ${res.total_recipients}\n- Cleaned Records: ${res.cleaned_records}\n- Name Casing Fixes: ${res.casing_fixes}\n- Gaps Auto-Filled: ${res.gaps_filled}\n- Credentials Issued: ${res.credentials_created}\n- Watermark Assurance: ${res.watermark_assurance}\n- Preflight Health Score: ${res.preflight_health_score}%`);
+    } catch (err: any) {
+      alert('Auto-Enhance error: ' + (err.message || 'Failed to auto-enhance project'));
+    } finally {
+      setIsAutoEnhancing(false);
+    }
+  };
+
   return (
     <div className="flex-1 bg-white flex flex-col h-full overflow-hidden select-none">
       {/* Action Header */}
@@ -309,6 +326,27 @@ export const RecipientManager: React.FC = () => {
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-700" />
             <span>{isFillingGaps ? 'Filling Gaps...' : 'Fill Blank Gaps'}</span>
+          </button>
+
+          {/* UNIFIED AUTO-ENHANCE & HEAL BUTTON */}
+          <button
+            onClick={handleAutoEnhanceAll}
+            disabled={isAutoEnhancing}
+            className="flex items-center space-x-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-xs font-bold shadow-xs transition-all"
+            title="Automatically format names to Title Case, clean corrupted 's' characters, fill all blank gaps without spaces, and issue credentials with Gemini watermark"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            <span>{isAutoEnhancing ? 'Enhancing...' : 'Auto-Enhance All'}</span>
+          </button>
+
+          {/* AUTONOMOUS QA & LOAD TEST MODAL BUTTON */}
+          <button
+            onClick={() => setShowQAModal(true)}
+            className="flex items-center space-x-1.5 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 rounded-lg px-3 py-1.5 text-xs font-bold shadow-xs transition-colors"
+            title="Open Autonomous QA & 1,000-User Load Testing Center"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Autonomous QA Test</span>
           </button>
 
           {/* DIRECT 1-CLICK DOWNLOAD BULK PDF */}
@@ -749,6 +787,12 @@ export const RecipientManager: React.FC = () => {
       <BulkQuantityPdfModal
         isOpen={showBulkPdfModal}
         onClose={() => setShowBulkPdfModal(false)}
+      />
+
+      {/* Master Autonomous QA & 1,000-User Testing Modal */}
+      <AutonomousQAModal
+        isOpen={showQAModal}
+        onClose={() => setShowQAModal(false)}
       />
     </div>
   );

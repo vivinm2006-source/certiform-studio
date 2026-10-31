@@ -13,6 +13,7 @@ import { useCanvasStore } from '../../store/useCanvasStore';
 import { CanvasOverlayInput } from './CanvasOverlayInput';
 import { TemplateSettingsModal } from './TemplateSettingsModal';
 import { api } from '../../services/api';
+import { AutonomousQAModal } from '../qa/AutonomousQAModal';
 import { cleanCorruptedS } from '../../utils/textCleaner';
 
 // Helper to resolve text binding variables in browser preview
@@ -221,6 +222,8 @@ export const CanvasWorkspace: React.FC = () => {
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [downloadWatermark, setDownloadWatermark] = useState<string>('GEMINI');
+  const [showQAModal, setShowQAModal] = useState(false);
+  const [isAutoEnhancing, setIsAutoEnhancing] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRec = recipients[activeRecipientIndex];
@@ -256,6 +259,19 @@ export const CanvasWorkspace: React.FC = () => {
   const handleStudentFontSizeChange = (size: number) => {
     if (studentElement) {
       updateElementProps(studentElement.id, { font_size: size });
+    }
+  };
+
+  const handleAutoEnhance = async () => {
+    if (!currentProject) return;
+    setIsAutoEnhancing(true);
+    try {
+      const res = await api.autoEnhanceProject(currentProject.id);
+      alert(`Auto-Enhancement Successful!\n- Enhanced ${res.total_recipients} recipient records\n- Fixed ${res.casing_fixes} name casing inconsistencies\n- Auto-filled ${res.gaps_filled} missing blanks without space gaps\n- Issued ${res.credentials_created} verified credentials with Gemini Watermark\n- Health Score: ${res.preflight_health_score}%`);
+    } catch (err: any) {
+      alert('Auto-Enhance error: ' + (err.message || 'Failed to auto-enhance project'));
+    } finally {
+      setIsAutoEnhancing(false);
     }
   };
 
@@ -1012,6 +1028,27 @@ export const CanvasWorkspace: React.FC = () => {
             <span>Bulk PDF</span>
           </a>
 
+          {/* Auto-Enhance Button */}
+          <button
+            onClick={handleAutoEnhance}
+            disabled={isAutoEnhancing}
+            className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[11px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Auto-enhance names, clean letters, fill gaps, and optimize typography"
+          >
+            <Sparkles className="h-3 w-3 text-indigo-600" />
+            <span className="hidden sm:inline">{isAutoEnhancing ? 'Enhancing...' : 'Auto-Enhance'}</span>
+          </button>
+
+          {/* QA Test Button */}
+          <button
+            onClick={() => setShowQAModal(true)}
+            className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Open Autonomous QA & 1,000-User Testing Center"
+          >
+            <ShieldCheck className="h-3 w-3 text-emerald-600" />
+            <span className="hidden sm:inline">QA Test</span>
+          </button>
+
           <div className="h-4 w-[1px] bg-slate-200 mx-0.5" />
 
           {/* Right Side: Toggle Properties Panel */}
@@ -1649,6 +1686,12 @@ export const CanvasWorkspace: React.FC = () => {
       <TemplateSettingsModal
         isOpen={showTemplateSettingsModal}
         onClose={() => setShowTemplateSettingsModal(false)}
+      />
+
+      {/* Autonomous QA & Load Testing Modal */}
+      <AutonomousQAModal
+        isOpen={showQAModal}
+        onClose={() => setShowQAModal(false)}
       />
     </div>
   );

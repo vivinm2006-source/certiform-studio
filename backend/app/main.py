@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.config import settings, BASE_DIR
 from app.database import engine, Base
-from app.api import projects, templates, forms, recipients, signatures, issuance, verification
+from app.api import projects, templates, forms, recipients, signatures, issuance, verification, qa_testing
 
 # Initialize database schema
 Base.metadata.create_all(bind=engine)
@@ -50,6 +50,7 @@ app.include_router(recipients.router, prefix=api_prefix)
 app.include_router(signatures.router, prefix=api_prefix)
 app.include_router(issuance.router, prefix=api_prefix)
 app.include_router(verification.router, prefix=api_prefix)
+app.include_router(qa_testing.router, prefix=api_prefix)
 
 # Also support /v1 for direct serverless rewrites
 app.include_router(projects.router, prefix="/v1")
@@ -59,6 +60,7 @@ app.include_router(recipients.router, prefix="/v1")
 app.include_router(signatures.router, prefix="/v1")
 app.include_router(issuance.router, prefix="/v1")
 app.include_router(verification.router, prefix="/v1")
+app.include_router(qa_testing.router, prefix="/v1")
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

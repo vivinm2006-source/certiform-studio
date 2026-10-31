@@ -2,7 +2,7 @@ import csv
 import io
 import re
 import datetime
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import openpyxl
 from sqlalchemy.orm import Session
 from app.models import Recipient, FormField, Project
@@ -83,6 +83,90 @@ def normalize_spaces(text: str) -> str:
     if not isinstance(text, str):
         text = str(text)
     return re.sub(r'[ \t\r\n]+', ' ', text).strip()
+
+def format_title_cased_name(name: str) -> str:
+    """Format person names into Title Case (e.g. 'sree sukanth' -> 'Sree Sukanth', 'DR. ANANYA KUMAR' -> 'Dr. Ananya Kumar')."""
+    if not name or not isinstance(name, str):
+        return name
+    name = normalize_spaces(clean_corrupted_s(name))
+    # If all uppercase or all lowercase, convert to Title Case
+    if name.isupper() or name.islower():
+        words = name.split(" ")
+        title_words = []
+        for w in words:
+            wl = w.lower()
+            if wl in ("dr.", "mr.", "ms.", "mrs.", "prof.", "prof"):
+                title_words.append(wl.capitalize() + ("." if not wl.endswith(".") else ""))
+            elif wl in ("ai", "ml", "cs", "it", "ece", "eee", "mech", "civil", "ii", "iii", "iv", "v"):
+                title_words.append(w.upper())
+            else:
+                title_words.append(w.capitalize())
+        return " ".join(title_words)
+    return name
+
+def auto_enhance_recipient_data(data: Dict[str, Any], project_defaults: Optional[Dict[str, str]] = None) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    """
+    Auto-enhances a recipient record:
+    - Normalizes spacing and cleans corrupted characters
+    - Formats person names in proper Title Case
+    - Fills missing event, date, department, and institution gaps with zero empty space
+    - Returns enhanced dict and stats of modifications
+    """
+    if not isinstance(data, dict):
+        return data, {"cleaned": 0, "casing_fixes": 0, "gaps_filled": 0}
+        
+    defaults = {
+        "event_name": "STARTUP & ENTREPRENEURSHIP",
+        "event_date": "26/10/2026",
+        "institution": "Nehru Institute of Technology",
+        "department": "Department of Artificial Intelligence and Machine Learning (AI & ML)"
+    }
+    if project_defaults:
+        defaults.update(project_defaults)
+        
+    stats = {"cleaned": 0, "casing_fixes": 0, "gaps_filled": 0}
+    enhanced = {}
+    
+    # Clean keys and values
+    for k, v in data.items():
+        k_clean = normalize_spaces(clean_corrupted_s(str(k)))
+        if isinstance(v, str):
+            v_clean = normalize_spaces(clean_corrupted_s(v))
+            # If name field, apply title case
+            if any(term in k_clean.lower() for term in ("name", "student", "participant", "candidate", "recipient")):
+                v_title = format_title_cased_name(v_clean)
+                if v_title != v:
+                    stats["casing_fixes"] += 1
+                v_clean = v_title
+            if v_clean != v:
+                stats["cleaned"] += 1
+            enhanced[k_clean] = v_clean
+        else:
+            enhanced[k_clean] = v
+            
+    # Guarantee primary name field exists
+    if not enhanced.get("recipient_name"):
+        for cand in ("student_name", "full_name", "name", "participant_name", "Student Name", "Full Name", "Name"):
+            if enhanced.get(cand):
+                enhanced["recipient_name"] = format_title_cased_name(str(enhanced[cand]))
+                break
+                
+    # Fill missing gaps without empty space
+    for field_key, default_val in defaults.items():
+        val = enhanced.get(field_key)
+        if val is None or not str(val).strip():
+            # Check synonyms
+            found = False
+            for cand in (field_key, field_key.replace("_", " "), field_key.title(), field_key.replace("_", " ").title()):
+                if enhanced.get(cand) and str(enhanced[cand]).strip():
+                    enhanced[field_key] = normalize_spaces(str(enhanced[cand]))
+                    found = True
+                    break
+            if not found:
+                enhanced[field_key] = default_val
+                stats["gaps_filled"] += 1
+
+    return enhanced, stats
 
 def clean_record_dict(d: Dict[str, Any]) -> Dict[str, Any]:
     """Clean all keys and string values in a recipient record dictionary."""
