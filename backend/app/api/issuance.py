@@ -31,10 +31,11 @@ def render_live_preview(payload: Dict[str, Any], db: Session = Depends(get_db)):
     recipient_data = clean_record_dict(payload.get("recipient_data", {}))
     output_format = payload.get("format", "png").lower() # "png" or "pdf"
     credential_id = payload.get("credential_id", "SAMPLE-PREVIEW-001")
+    watermark = payload.get("watermark")
     
     if output_format == "pdf":
         pdf_bytes = render_certificate_pdf(
-            template_data, elements_data, recipient_data, credential_id=credential_id, public_base_url=settings.PUBLIC_BASE_URL
+            template_data, elements_data, recipient_data, credential_id=credential_id, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark
         )
         r_data = dict(recipient_data or {})
         raw_name = (
@@ -62,7 +63,7 @@ def render_live_preview(payload: Dict[str, Any], db: Session = Depends(get_db)):
     else:
         # Standard high-quality PNG preview
         img = render_certificate_image(
-            template_data, elements_data, recipient_data, credential_id=credential_id, dpi=settings.PREVIEW_DPI, public_base_url=settings.PUBLIC_BASE_URL
+            template_data, elements_data, recipient_data, credential_id=credential_id, dpi=settings.PREVIEW_DPI, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark
         )
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -118,7 +119,7 @@ def run_preflight_check(project_id: str, db: Session = Depends(get_db)):
     )
     return report
 
-def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, template_id: Optional[str] = None):
+def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, template_id: Optional[str] = None, watermark: Optional[str] = "GEMINI"):
     """Directly generate and return bulk certificate export stream in-memory."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -188,7 +189,7 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         for idx, rec in enumerate(recipients):
             cred_id = f"CERT-BULK-{(idx + 1):04d}"
             items.append({"data": clean_record_dict(dict(rec.data or {})), "credential_id": cred_id})
-        pdf_bytes = render_consolidated_pdf(template_dict, elements_list, items, public_base_url=settings.PUBLIC_BASE_URL)
+        pdf_bytes = render_consolidated_pdf(template_dict, elements_list, items, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark)
         filename = f"certificates_consolidated_{project_id[:8]}.pdf"
         return Response(
             content=pdf_bytes,
@@ -208,7 +209,7 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
                 name = r_data.get("recipient_name") or r_data.get("full_name") or f"recipient_{(idx+1):03d}"
                 safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
                 cred_id = f"CERT-{(idx + 1):04d}"
-                pdf_b = render_certificate_pdf(template_dict, elements_list, r_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL)
+                pdf_b = render_certificate_pdf(template_dict, elements_list, r_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark)
                 zf.writestr(f"{(idx+1):03d}_{safe_name}.pdf", pdf_b)
         filename = f"certificates_pdf_bundle_{project_id[:8]}.zip"
         return Response(
@@ -229,7 +230,7 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
                 name = r_data.get("recipient_name") or r_data.get("full_name") or f"recipient_{(idx+1):03d}"
                 safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
                 cred_id = f"CERT-{(idx + 1):04d}"
-                img = render_certificate_image(template_dict, elements_list, r_data, credential_id=cred_id, dpi=settings.DEFAULT_DPI, public_base_url=settings.PUBLIC_BASE_URL)
+                img = render_certificate_image(template_dict, elements_list, r_data, credential_id=cred_id, dpi=settings.DEFAULT_DPI, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark)
                 img_b = io.BytesIO()
                 img.save(img_b, format="PNG")
                 zf.writestr(f"{(idx+1):03d}_{safe_name}.png", img_b.getvalue())
@@ -341,19 +342,19 @@ def download_job_artifact(job_id: str, template_id: Optional[str] = None, db: Se
     )
 
 @router.get("/projects/{project_id}/export/bulk-pdf")
-def export_bulk_pdf_direct(project_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
+def export_bulk_pdf_direct(project_id: str, template_id: Optional[str] = None, watermark: Optional[str] = "GEMINI", db: Session = Depends(get_db)):
     """Direct 1-click download of all recipient certificates as a single consolidated PDF."""
-    return export_bulk_certificates_direct(project_id, "consolidated_pdf", db, template_id=template_id)
+    return export_bulk_certificates_direct(project_id, "consolidated_pdf", db, template_id=template_id, watermark=watermark)
 
 @router.get("/projects/{project_id}/export/bulk-zip")
-def export_bulk_zip_direct(project_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
+def export_bulk_zip_direct(project_id: str, template_id: Optional[str] = None, watermark: Optional[str] = "GEMINI", db: Session = Depends(get_db)):
     """Direct 1-click download of all recipient certificates as a ZIP archive of individual PDFs."""
-    return export_bulk_certificates_direct(project_id, "zip_pdf", db, template_id=template_id)
+    return export_bulk_certificates_direct(project_id, "zip_pdf", db, template_id=template_id, watermark=watermark)
 
 @router.get("/projects/{project_id}/export/bulk-png")
-def export_bulk_png_direct(project_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
+def export_bulk_png_direct(project_id: str, template_id: Optional[str] = None, watermark: Optional[str] = "GEMINI", db: Session = Depends(get_db)):
     """Direct 1-click download of all recipient certificates as a ZIP archive of PNG images."""
-    return export_bulk_certificates_direct(project_id, "zip_png", db, template_id=template_id)
+    return export_bulk_certificates_direct(project_id, "zip_png", db, template_id=template_id, watermark=watermark)
 
 @router.post("/projects/{project_id}/instant-certificate")
 def create_instant_certificate(project_id: str, payload: Dict[str, Any], db: Session = Depends(get_db)):
@@ -461,7 +462,7 @@ def create_instant_certificate(project_id: str, payload: Dict[str, Any], db: Ses
     }
 
 @router.get("/recipients/{recipient_id}/export-pdf")
-def export_recipient_pdf(recipient_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
+def export_recipient_pdf(recipient_id: str, template_id: Optional[str] = None, watermark: Optional[str] = "GEMINI", db: Session = Depends(get_db)):
     """Export single recipient certificate directly as vector PDF."""
     recipient = db.query(Recipient).filter(Recipient.id == recipient_id).first()
     if not recipient:
@@ -517,7 +518,7 @@ def export_recipient_pdf(recipient_id: str, template_id: Optional[str] = None, d
     
     r_data = clean_record_dict(dict(recipient.data or {}))
     pdf_bytes = render_certificate_pdf(
-        template_data, elements_data, r_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL
+        template_data, elements_data, r_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark
     )
     raw_name = (
         r_data.get("recipient_name") or
@@ -543,7 +544,7 @@ def export_recipient_pdf(recipient_id: str, template_id: Optional[str] = None, d
     )
 
 @router.get("/recipients/{recipient_id}/export-png")
-def export_recipient_png(recipient_id: str, template_id: Optional[str] = None, db: Session = Depends(get_db)):
+def export_recipient_png(recipient_id: str, template_id: Optional[str] = None, watermark: Optional[str] = "GEMINI", db: Session = Depends(get_db)):
     """Export single recipient certificate directly as high-res 300 DPI PNG."""
     recipient = db.query(Recipient).filter(Recipient.id == recipient_id).first()
     if not recipient:
@@ -599,7 +600,7 @@ def export_recipient_png(recipient_id: str, template_id: Optional[str] = None, d
     
     r_data = clean_record_dict(dict(recipient.data or {}))
     img = render_certificate_image(
-        template_data, elements_data, r_data, credential_id=cred_id, dpi=300, public_base_url=settings.PUBLIC_BASE_URL
+        template_data, elements_data, r_data, credential_id=cred_id, dpi=300, public_base_url=settings.PUBLIC_BASE_URL, watermark=watermark
     )
     buf = io.BytesIO()
     img.save(buf, format="PNG")

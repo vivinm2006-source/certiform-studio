@@ -291,13 +291,57 @@ def get_reportlab_font_name(font_family: str, font_weight: str = "normal", font_
         elif is_italic: return "Helvetica-Oblique"
         else: return "Helvetica"
 
+def draw_gemini_watermark(c: canvas.Canvas, width_pt: float, height_pt: float, text: str = "GEMINI"):
+    """
+    Renders an authoritative, elegant Gemini vector watermark across the certificate canvas.
+    Drawn with translucent vector alpha so it protects authenticity without obstructing certificate text.
+    """
+    if not text or text.lower() == "none":
+        return
+        
+    c.saveState()
+    
+    # 1. Diagonal Translucent Center Watermark
+    try:
+        c.setFillColor(HexColor("#4F46E5"), alpha=0.08)
+    except Exception:
+        try:
+            c.setFillColor(HexColor("#94A3B8"), alpha=0.08)
+        except Exception:
+            c.setFillColor(HexColor("#CBD5E1"))
+            
+    c.translate(width_pt / 2.0, height_pt / 2.0)
+    c.rotate(32)
+    
+    main_font_size = min(width_pt, height_pt) * 0.15
+    c.setFont("Helvetica-Bold", main_font_size)
+    c.drawCentredString(0, 0, text.upper())
+    
+    sub_font_size = main_font_size * 0.22
+    c.setFont("Helvetica", sub_font_size)
+    c.drawCentredString(0, -sub_font_size * 1.6, "VERIFIED ACADEMIC & INSTITUTIONAL CREDENTIAL")
+    
+    c.restoreState()
+    
+    # 2. Bottom Security Line Watermark
+    c.saveState()
+    try:
+        c.setFillColor(HexColor("#64748B"), alpha=0.60)
+    except Exception:
+        c.setFillColor(HexColor("#64748B"))
+    footer_font_size = 7.0
+    c.setFont("Helvetica", footer_font_size)
+    c.drawCentredString(width_pt / 2.0, 14, f"DIGITALLY CERTIFIED • {text.upper()} SECURE VERIFICATION WATERMARK • CERTIFORM STUDIO")
+    c.restoreState()
+
 def render_page_to_canvas(
     c: canvas.Canvas,
     template_dict: Dict[str, Any],
     elements: List[Dict[str, Any]],
     recipient_data: Dict[str, Any],
     credential_id: Optional[str] = None,
-    public_base_url: str = "http://localhost:5173"
+    public_base_url: str = "http://localhost:5173",
+    watermark: Optional[str] = "GEMINI"
 ):
     """Render a single certificate page onto an existing ReportLab canvas."""
     width_pt = template_dict.get("width_pt", 841.89)
@@ -511,12 +555,17 @@ def render_page_to_canvas(
             elif shape_type == "circle":
                 c.ellipse(rx, ry, rx + rw, ry + rh, fill=1 if has_fill else 0, stroke=1 if has_stroke else 0)
 
+    # 4. Gemini Watermark on Download
+    if watermark and watermark.lower() != "none" and str(watermark).strip():
+        draw_gemini_watermark(c, width_pt, height_pt, text=str(watermark).strip())
+
 def render_certificate_pdf(
     template_dict: Dict[str, Any],
     elements: List[Dict[str, Any]],
     recipient_data: Dict[str, Any],
     credential_id: Optional[str] = None,
-    public_base_url: str = "http://localhost:5173"
+    public_base_url: str = "http://localhost:5173",
+    watermark: Optional[str] = "GEMINI"
 ) -> bytes:
     """Render a single vector certificate to PDF bytes."""
     width_pt = template_dict.get("width_pt", 841.89)
@@ -540,7 +589,7 @@ def render_certificate_pdf(
     c.setTitle(doc_title)
     c.setAuthor("CertiForm Studio")
     
-    render_page_to_canvas(c, template_dict, elements, recipient_data, credential_id, public_base_url)
+    render_page_to_canvas(c, template_dict, elements, recipient_data, credential_id, public_base_url, watermark=watermark)
     
     c.showPage()
     c.save()
@@ -551,7 +600,8 @@ def render_consolidated_pdf(
     template_dict: Dict[str, Any],
     elements: List[Dict[str, Any]],
     recipients_with_credentials: List[Dict[str, Any]], # list of {"data": {...}, "credential_id": "..."}
-    public_base_url: str = "http://localhost:5173"
+    public_base_url: str = "http://localhost:5173",
+    watermark: Optional[str] = "GEMINI"
 ) -> bytes:
     """Render multiple certificates into a single consolidated multi-page PDF."""
     width_pt = template_dict.get("width_pt", 841.89)
@@ -565,7 +615,7 @@ def render_consolidated_pdf(
     for item in recipients_with_credentials:
         rec_data = item.get("data", {})
         cid = item.get("credential_id")
-        render_page_to_canvas(c, template_dict, elements, rec_data, cid, public_base_url)
+        render_page_to_canvas(c, template_dict, elements, rec_data, cid, public_base_url, watermark=watermark)
         c.showPage()
         
     c.save()

@@ -316,3 +316,40 @@ def test_direct_bulk_pdf_export(client, db_session):
     assert resp.headers.get("content-type") == "application/pdf"
     assert resp.content.startswith(b"%PDF")
     assert len(resp.content) > 5000
+
+# --- Test O: Gemini Watermark on Download (PDF, PNG & Bulk Consolidated) ---
+def test_gemini_watermark_download(client, db_session):
+    import pypdf
+    proj = create_default_project(db_session, title="Gemini Watermark Project")
+    recipients = client.get(f"/api/v1/projects/{proj.id}/recipients").json()["items"]
+    assert len(recipients) > 0
+    rec_id = recipients[0]["id"]
+
+    # 1. Test single vector PDF download with Gemini watermark
+    resp_pdf = client.get(f"/api/v1/recipients/{rec_id}/export-pdf?watermark=GEMINI")
+    assert resp_pdf.status_code == 200
+    assert resp_pdf.headers.get("content-type") == "application/pdf"
+    assert resp_pdf.content.startswith(b"%PDF")
+    
+    # Verify watermark text is present in vector PDF using pypdf
+    pdf_reader = pypdf.PdfReader(io.BytesIO(resp_pdf.content))
+    extracted_text = "".join(page.extract_text() or "" for page in pdf_reader.pages)
+    assert "GEMINI" in extracted_text
+    assert "VERIFIED ACADEMIC" in extracted_text
+
+    # 2. Test single PNG download with Gemini watermark
+    resp_png = client.get(f"/api/v1/recipients/{rec_id}/export-png?watermark=GEMINI")
+    assert resp_png.status_code == 200
+    assert resp_png.headers.get("content-type") == "image/png"
+    assert resp_png.content.startswith(b"\x89PNG")
+    assert len(resp_png.content) > 10000
+
+    # 3. Test direct bulk consolidated PDF export with Gemini watermark
+    resp_bulk = client.get(f"/api/v1/projects/{proj.id}/export/bulk-pdf?watermark=GEMINI")
+    assert resp_bulk.status_code == 200
+    assert resp_bulk.headers.get("content-type") == "application/pdf"
+    bulk_reader = pypdf.PdfReader(io.BytesIO(resp_bulk.content))
+    bulk_text = "".join(page.extract_text() or "" for page in bulk_reader.pages)
+    assert "GEMINI" in bulk_text
+    assert "DIGITALLY CERTIFIED" in bulk_text
+

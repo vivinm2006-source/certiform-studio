@@ -153,7 +153,7 @@ def process_issuance_job(job_id: str):
                 # Render based on job mode
                 if job.output_mode in ("single_pdf", "zip_pdf"):
                     pdf_bytes = render_certificate_pdf(
-                        template_dict, elements_list, rec_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL
+                        template_dict, elements_list, rec_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL, watermark="GEMINI"
                     )
                     digest = compute_sha256(pdf_bytes)
                     cred.artifact_digest = digest
@@ -171,7 +171,7 @@ def process_issuance_job(job_id: str):
                     
                 elif job.output_mode in ("single_png", "zip_png"):
                     img = render_certificate_image(
-                        template_dict, elements_list, rec_data, credential_id=cred_id, dpi=settings.DEFAULT_DPI, public_base_url=settings.PUBLIC_BASE_URL
+                        template_dict, elements_list, rec_data, credential_id=cred_id, dpi=settings.DEFAULT_DPI, public_base_url=settings.PUBLIC_BASE_URL, watermark="GEMINI"
                     )
                     img_buf = io.BytesIO()
                     img.save(img_buf, format="PNG")
@@ -227,7 +227,7 @@ def process_issuance_job(job_id: str):
             
         elif job.output_mode == "consolidated_pdf":
             multi_pdf_bytes = render_consolidated_pdf(
-                template_dict, elements_list, consolidated_items, public_base_url=settings.PUBLIC_BASE_URL
+                template_dict, elements_list, consolidated_items, public_base_url=settings.PUBLIC_BASE_URL, watermark="GEMINI"
             )
             multi_filename = f"consolidated_{project.id[:8]}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
             multi_path = settings.GENERATED_DIR / multi_filename

@@ -313,10 +313,10 @@ export const RecipientManager: React.FC = () => {
 
           {/* DIRECT 1-CLICK DOWNLOAD BULK PDF */}
           <a
-            href={`/api/v1/projects/${currentProject?.id}/export/bulk-pdf?template_id=${activeTemplate?.id || ''}`}
+            href={`/api/v1/projects/${currentProject?.id}/export/bulk-pdf?template_id=${activeTemplate?.id || ''}&watermark=GEMINI`}
             download
             className="flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold shadow-xs transition-colors"
-            title="Download all recipient certificates as a single consolidated multi-page PDF document"
+            title="Download all recipient certificates as a single consolidated multi-page PDF document with Gemini watermark"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Download Bulk PDF</span>
@@ -448,12 +448,20 @@ export const RecipientManager: React.FC = () => {
                   <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center space-x-1">
                       <a
-                        href={`/api/v1/recipients/${rec.id}/export-pdf?template_id=${activeTemplate?.id || ''}`}
+                        href={`/api/v1/recipients/${rec.id}/export-pdf?template_id=${activeTemplate?.id || ''}&watermark=GEMINI`}
                         download
                         className="p-1 text-slate-400 hover:text-emerald-600 rounded hover:bg-emerald-50"
-                        title="Download Certificate as Vector PDF"
+                        title="Download Certificate with Gemini Watermark as Vector PDF"
                       >
                         <Download className="h-3.5 w-3.5 text-emerald-600" />
+                      </a>
+                      <a
+                        href={`/api/v1/recipients/${rec.id}/export-png?template_id=${activeTemplate?.id || ''}&watermark=GEMINI`}
+                        download
+                        className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-indigo-50"
+                        title="Download Certificate with Gemini Watermark as High-Res PNG"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       </a>
                       <button
                         onClick={() => {

@@ -5,7 +5,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, Layers, Sparkles,
   Download, Edit3, X, RefreshCw, Sliders, Upload,
   PanelLeft, PanelRight, ChevronDown, Check, Plus, LayoutTemplate,
-  ChevronLeft, ChevronRight, User, FileText
+  ChevronLeft, ChevronRight, User, FileText, ShieldCheck
 } from 'lucide-react';
 import { CanvasElement } from '../../types';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -220,6 +220,7 @@ export const CanvasWorkspace: React.FC = () => {
   const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [downloadWatermark, setDownloadWatermark] = useState<string>('GEMINI');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRec = recipients[activeRecipientIndex];
@@ -539,6 +540,7 @@ export const CanvasWorkspace: React.FC = () => {
           recipient_data: recData,
           format: 'pdf',
           credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
+          watermark: downloadWatermark,
         }),
       });
       if (!resp.ok) {
@@ -561,8 +563,9 @@ export const CanvasWorkspace: React.FC = () => {
       const activeRec = recipients[activeRecipientIndex];
       const tplId = activeTemplate?.id;
       const tplQuery = tplId ? `?template_id=${tplId}` : '';
+      const wmQuery = `${tplQuery ? '&' : '?'}watermark=${encodeURIComponent(downloadWatermark)}`;
       if (activeRec?.id) {
-        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf${tplQuery}`;
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-pdf${tplQuery}${wmQuery}`;
       } else {
         alert('PDF download error: ' + (err.message || 'Please check connection'));
       }
@@ -586,6 +589,7 @@ export const CanvasWorkspace: React.FC = () => {
         recipient_data: recData,
         format: 'png',
         credential_id: `CERT-SAMPLE-${(activeRecipientIndex + 1).toString().padStart(4, '0')}`,
+        watermark: downloadWatermark,
       });
       const a = document.createElement('a');
       a.href = resp.data_url;
@@ -599,8 +603,9 @@ export const CanvasWorkspace: React.FC = () => {
       const activeRec = recipients[activeRecipientIndex];
       const tplId = activeTemplate?.id;
       const tplQuery = tplId ? `?template_id=${tplId}` : '';
+      const wmQuery = `${tplQuery ? '&' : '?'}watermark=${encodeURIComponent(downloadWatermark)}`;
       if (activeRec?.id) {
-        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png${tplQuery}`;
+        window.location.href = `/api/v1/recipients/${activeRec.id}/export-png${tplQuery}${wmQuery}`;
       } else {
         alert('PNG download error: ' + (err.message || 'Please check connection'));
       }
@@ -998,10 +1003,10 @@ export const CanvasWorkspace: React.FC = () => {
 
           {/* Bulk PDF Direct Download Button */}
           <a
-            href={`/api/v1/projects/${currentProject?.id}/export/bulk-pdf?template_id=${activeTemplate?.id || ''}`}
+            href={`/api/v1/projects/${currentProject?.id}/export/bulk-pdf?template_id=${activeTemplate?.id || ''}&watermark=${encodeURIComponent(downloadWatermark)}`}
             download
             className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded text-[11px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
-            title="Download all recipient certificates as a single multi-page consolidated PDF document"
+            title="Download all recipient certificates as a single multi-page consolidated PDF document with Gemini watermark"
           >
             <FileText className="h-3 w-3" />
             <span>Bulk PDF</span>
@@ -1555,6 +1560,43 @@ export const CanvasWorkspace: React.FC = () => {
                 placeholder="e.g. Nehru Institute of Technology"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />
+            </div>
+
+            {/* Download Watermark Settings */}
+            <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5">
+                  <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                  <span className="text-[11px] font-bold text-indigo-950">Download Watermark</span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold uppercase">
+                  {downloadWatermark}
+                </span>
+              </div>
+              <p className="text-[10px] text-indigo-900/80 leading-relaxed">
+                Applies an authoritative translucent verification watermark across vector PDFs and PNG downloads.
+              </p>
+              <div className="grid grid-cols-4 gap-1 pt-0.5">
+                {[
+                  { label: 'Gemini', val: 'GEMINI' },
+                  { label: 'Verified', val: 'VERIFIED' },
+                  { label: 'Official', val: 'OFFICIAL' },
+                  { label: 'None', val: 'NONE' },
+                ].map((opt) => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => setDownloadWatermark(opt.val)}
+                    className={`py-1 text-[10px] font-semibold rounded border transition-all text-center ${
+                      downloadWatermark === opt.val
+                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs font-bold'
+                        : 'bg-white text-slate-700 border-indigo-200 hover:bg-indigo-100/60'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Recipient Email */}

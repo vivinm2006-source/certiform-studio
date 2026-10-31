@@ -142,6 +142,7 @@ export const api = {
     recipient_data: Record<string, any>;
     format?: 'png' | 'pdf';
     credential_id?: string;
+    watermark?: string;
   }) => request<{ mime_type: string; data_url: string; width: number; height: number }>('/render/preview', {
     method: 'POST',
     body: JSON.stringify(payload)

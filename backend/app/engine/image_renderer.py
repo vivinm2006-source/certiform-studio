@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import math
 import base64
 from typing import Dict, Any, List, Optional
 from PIL import Image, ImageDraw, ImageFont, ImageColor
@@ -268,13 +269,78 @@ def get_pil_font(font_family: str, size_px: int, font_weight: str = "normal", fo
     except Exception:
         return ImageFont.load_default()
 
+def draw_gemini_watermark_image(base_img: Image.Image, text: str = "GEMINI", dpi: int = 300) -> Image.Image:
+    """
+    Renders an authoritative, translucent, professional Gemini verification watermark
+    onto raster certificate image using Pillow RGBA alpha compositing.
+    Features:
+    1. Diagonal center watermark: GEMINI / VERIFIED ACADEMIC & INSTITUTIONAL CREDENTIAL
+    2. Bottom security line watermark: DIGITALLY CERTIFIED • GEMINI SECURE VERIFICATION WATERMARK • CERTIFORM STUDIO
+    """
+    if not text or text.lower() == "none" or not str(text).strip():
+        return base_img
+        
+    w, h = base_img.size
+    diag = int(math.hypot(w, h)) + 20
+    overlay = Image.new("RGBA", (diag, diag), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    
+    main_size = max(24, int(min(w, h) * 0.14))
+    sub_size = max(10, int(main_size * 0.22))
+    footer_size = max(9, int(11 * (dpi / 72.0)))
+
+    try:
+        main_font = ImageFont.truetype("arialbd.ttf", main_size)
+    except Exception:
+        try:
+            main_font = ImageFont.truetype("arial.ttf", main_size)
+        except Exception:
+            main_font = ImageFont.load_default()
+
+    try:
+        sub_font = ImageFont.truetype("arial.ttf", sub_size)
+    except Exception:
+        sub_font = ImageFont.load_default()
+
+    try:
+        footer_font = ImageFont.truetype("arial.ttf", footer_size)
+    except Exception:
+        footer_font = ImageFont.load_default()
+
+    cx, cy = diag / 2.0, diag / 2.0
+    # Indigo #4F46E5 with subtle ~9% alpha (22/255)
+    watermark_color = (79, 70, 229, 22)
+    draw.text((cx, cy), text.upper(), fill=watermark_color, font=main_font, anchor="mm")
+    draw.text((cx, cy + main_size * 0.72), "VERIFIED ACADEMIC & INSTITUTIONAL CREDENTIAL", fill=watermark_color, font=sub_font, anchor="mm")
+
+    rotated = overlay.rotate(32, resample=Image.Resampling.BICUBIC)
+    crop_x = (diag - w) // 2
+    crop_y = (diag - h) // 2
+    watermark_cropped = rotated.crop((crop_x, crop_y, crop_x + w, crop_y + h))
+    base_img.alpha_composite(watermark_cropped)
+
+    # Bottom security line watermark
+    footer_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    f_draw = ImageDraw.Draw(footer_overlay)
+    footer_y = h - max(16, int(18 * (dpi / 72.0)))
+    f_draw.text(
+        (w / 2.0, footer_y),
+        f"DIGITALLY CERTIFIED • {text.upper()} SECURE VERIFICATION WATERMARK • CERTIFORM STUDIO",
+        fill=(100, 116, 139, 140),
+        font=footer_font,
+        anchor="mm"
+    )
+    base_img.alpha_composite(footer_overlay)
+    return base_img
+
 def render_certificate_image(
     template_dict: Dict[str, Any],
     elements: List[Dict[str, Any]],
     recipient_data: Dict[str, Any],
     credential_id: Optional[str] = None,
     dpi: int = 300,
-    public_base_url: str = "http://localhost:5173"
+    public_base_url: str = "http://localhost:5173",
+    watermark: Optional[str] = "GEMINI"
 ) -> Image.Image:
     """
     Render high-resolution raster certificate using Pillow.
@@ -444,5 +510,9 @@ def render_certificate_image(
                     outline=border_color if border_w > 0 else None,
                     width=max(1, border_w) if border_w > 0 else 0
                 )
+
+    # 4. Gemini Watermark on Download
+    if watermark and watermark.lower() != "none" and str(watermark).strip():
+        canvas = draw_gemini_watermark_image(canvas, text=str(watermark).strip(), dpi=dpi)
 
     return canvas

@@ -16,6 +16,7 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
   const { currentProject, recipients, refreshRecipients, activeTemplate, templates, selectTemplate } = useProjectStore();
 
   const [outputMode, setOutputMode] = useState<'consolidated_pdf' | 'zip_pdf' | 'zip_png'>('consolidated_pdf');
+  const [watermark, setWatermark] = useState<string>('GEMINI');
   const [activeJob, setActiveJob] = useState<IssuanceJob | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -66,7 +67,7 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
         setIsDownloading(false);
         return;
       }
-      const fallbackUrl = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}?template_id=${activeTemplate?.id || ''}&t=${Date.now()}`;
+      const fallbackUrl = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}?template_id=${activeTemplate?.id || ''}&watermark=${encodeURIComponent(watermark)}&t=${Date.now()}`;
       try {
         const fResp = await fetch(fallbackUrl);
         if (!fResp.ok) throw new Error(`Direct export failed with HTTP ${fResp.status}`);
@@ -126,6 +127,7 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
     setIsSubmitting(true);
     const tplId = activeTemplate?.id;
     const tplParam = tplId ? `?template_id=${tplId}` : '';
+    const watermarkParam = `${tplParam ? '&' : '?'}watermark=${encodeURIComponent(watermark)}`;
     const defaultFilename = outputMode === 'consolidated_pdf'
       ? `certificates_consolidated_${currentProject.id.slice(0, 8)}.pdf`
       : `certificates_bundle_${currentProject.id.slice(0, 8)}.zip`;
@@ -135,12 +137,12 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
       setActiveJob(job);
       setIsSubmitting(false);
       if (job.status === 'completed' || job.artifact_url) {
-        const dlUrl = `/api/v1/issuance/jobs/${job.id}/download${tplParam}${tplParam ? '&' : '?'}t=${Date.now()}`;
+        const dlUrl = `/api/v1/issuance/jobs/${job.id}/download${tplParam}${watermarkParam}&t=${Date.now()}`;
         await triggerDirectDownload(dlUrl, defaultFilename);
       }
     } catch (err: any) {
       setIsSubmitting(false);
-      const directUrl = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplParam}${tplParam ? '&' : '?'}t=${Date.now()}`;
+      const directUrl = `/api/v1/projects/${currentProject.id}/export/${outputMode === 'consolidated_pdf' ? 'bulk-pdf' : outputMode === 'zip_pdf' ? 'bulk-zip' : 'bulk-png'}${tplParam}${watermarkParam}&t=${Date.now()}`;
       await triggerDirectDownload(directUrl, defaultFilename);
     }
   };
@@ -148,8 +150,9 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
   const handleDownloadArtifact = async () => {
     if (!activeJob || !currentProject) return;
     const tplParam = activeTemplate?.id ? `?template_id=${activeTemplate.id}` : '';
+    const watermarkParam = `${tplParam ? '&' : '?'}watermark=${encodeURIComponent(watermark)}`;
     const defaultFilename = activeJob.artifact_filename || (outputMode === 'consolidated_pdf' ? 'certificates_consolidated.pdf' : 'certificates_bundle.zip');
-    const dlUrl = `/api/v1/issuance/jobs/${activeJob.id}/download${tplParam}${tplParam ? '&' : '?'}t=${Date.now()}`;
+    const dlUrl = `/api/v1/issuance/jobs/${activeJob.id}/download${tplParam}${watermarkParam}&t=${Date.now()}`;
     await triggerDirectDownload(dlUrl, defaultFilename);
   };
 
@@ -306,6 +309,43 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
                 </div>
               </label>
 
+            </div>
+          </div>
+
+          {/* Watermark Security Options Card */}
+          <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                <span className="text-xs font-bold text-indigo-950">Gemini Security Watermark</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold uppercase">
+                {watermark}
+              </span>
+            </div>
+            <p className="text-[11px] text-indigo-900/80 leading-relaxed">
+              Applies a high-authority translucent vector watermark (GEMINI / VERIFIED ACADEMIC & INSTITUTIONAL CREDENTIAL) with digital verification footer on all exported documents.
+            </p>
+            <div className="grid grid-cols-4 gap-1.5 pt-1">
+              {[
+                { label: 'Gemini (Default)', val: 'GEMINI' },
+                { label: 'Verified', val: 'VERIFIED' },
+                { label: 'Official', val: 'OFFICIAL' },
+                { label: 'None', val: 'NONE' },
+              ].map((opt) => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setWatermark(opt.val)}
+                  className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-all text-center ${
+                    watermark === opt.val
+                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs font-bold'
+                      : 'bg-white text-slate-700 border-indigo-200 hover:bg-indigo-100/60'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
