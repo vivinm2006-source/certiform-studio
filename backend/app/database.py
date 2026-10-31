@@ -4,7 +4,7 @@ from app.config import settings
 
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+    connect_args = {"check_same_thread": False, "timeout": 30.0}
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -12,7 +12,7 @@ engine = create_engine(
     pool_pre_ping=True
 )
 
-# Enable WAL mode for SQLite to prevent database locks during background tasks
+# Enable WAL mode and busy_timeout for SQLite to prevent database locks during high concurrency
 if settings.DATABASE_URL.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -20,6 +20,7 @@ if settings.DATABASE_URL.startswith("sqlite"):
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
             cursor.close()
         except Exception:
             pass

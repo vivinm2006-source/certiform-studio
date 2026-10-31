@@ -59,14 +59,14 @@ def create_signature(payload: SignatureAssetCreate, db: Session = Depends(get_db
 
 @router.post("/upload")
 def upload_signature_image(file: UploadFile = File(...)):
-    """Upload transparent PNG signature image."""
+    """Upload transparent PNG, WEBP, or SVG vector signature / seal image."""
     ext = file.filename.split(".")[-1].lower() if file.filename else "png"
-    if ext not in ("png", "webp"):
-        raise HTTPException(status_code=400, detail="Signature images must be transparent PNG or WEBP.")
+    if ext not in ("png", "webp", "svg"):
+        raise HTTPException(status_code=400, detail="Signature images must be transparent PNG, WEBP, or SVG.")
         
     file_bytes = file.file.read()
     b64_content = base64.b64encode(file_bytes).decode("utf-8")
-    mime_type = "image/webp" if ext == "webp" else "image/png"
+    mime_type = "image/svg+xml" if ext == "svg" else "image/webp" if ext == "webp" else "image/png"
     data_url = f"data:{mime_type};base64,{b64_content}"
 
     try:

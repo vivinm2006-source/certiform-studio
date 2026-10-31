@@ -13,6 +13,7 @@ from app.schemas import IssuanceJobCreate, IssuanceJobOut, PreflightReport
 from app.engine.image_renderer import render_certificate_image
 from app.engine.pdf_renderer import render_certificate_pdf, render_consolidated_pdf
 from app.engine.preflight import PreflightChecker
+from app.services.recipient_service import clean_record_dict
 from app.services.issuance_service import launch_issuance_job, process_issuance_job
 from app.services.verification_service import generate_human_credential_id
 from app.config import settings
@@ -27,7 +28,7 @@ def render_live_preview(payload: Dict[str, Any], db: Session = Depends(get_db)):
     """
     template_data = payload.get("template", {})
     elements_data = payload.get("elements", [])
-    recipient_data = payload.get("recipient_data", {})
+    recipient_data = clean_record_dict(payload.get("recipient_data", {}))
     output_format = payload.get("format", "png").lower() # "png" or "pdf"
     credential_id = payload.get("credential_id", "SAMPLE-PREVIEW-001")
     
@@ -186,7 +187,7 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         items = []
         for idx, rec in enumerate(recipients):
             cred_id = f"CERT-BULK-{(idx + 1):04d}"
-            items.append({"data": dict(rec.data or {}), "credential_id": cred_id})
+            items.append({"data": clean_record_dict(dict(rec.data or {})), "credential_id": cred_id})
         pdf_bytes = render_consolidated_pdf(template_dict, elements_list, items, public_base_url=settings.PUBLIC_BASE_URL)
         filename = f"certificates_consolidated_{project_id[:8]}.pdf"
         return Response(
@@ -203,7 +204,7 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             for idx, rec in enumerate(recipients):
-                r_data = dict(rec.data or {})
+                r_data = clean_record_dict(dict(rec.data or {}))
                 name = r_data.get("recipient_name") or r_data.get("full_name") or f"recipient_{(idx+1):03d}"
                 safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
                 cred_id = f"CERT-{(idx + 1):04d}"
@@ -224,7 +225,7 @@ def export_bulk_certificates_direct(project_id: str, mode: str, db: Session, tem
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             for idx, rec in enumerate(recipients):
-                r_data = dict(rec.data or {})
+                r_data = clean_record_dict(dict(rec.data or {}))
                 name = r_data.get("recipient_name") or r_data.get("full_name") or f"recipient_{(idx+1):03d}"
                 safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
                 cred_id = f"CERT-{(idx + 1):04d}"
@@ -514,11 +515,10 @@ def export_recipient_pdf(recipient_id: str, template_id: Optional[str] = None, d
         for el in template.elements
     ]
     
+    r_data = clean_record_dict(dict(recipient.data or {}))
     pdf_bytes = render_certificate_pdf(
-        template_data, elements_data, recipient.data or {}, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL
+        template_data, elements_data, r_data, credential_id=cred_id, public_base_url=settings.PUBLIC_BASE_URL
     )
-    
-    r_data = dict(recipient.data or {})
     raw_name = (
         r_data.get("recipient_name") or
         r_data.get("student_name") or
@@ -597,13 +597,12 @@ def export_recipient_png(recipient_id: str, template_id: Optional[str] = None, d
         for el in template.elements
     ]
     
+    r_data = clean_record_dict(dict(recipient.data or {}))
     img = render_certificate_image(
-        template_data, elements_data, recipient.data or {}, credential_id=cred_id, dpi=300, public_base_url=settings.PUBLIC_BASE_URL
+        template_data, elements_data, r_data, credential_id=cred_id, dpi=300, public_base_url=settings.PUBLIC_BASE_URL
     )
     buf = io.BytesIO()
     img.save(buf, format="PNG")
-    
-    r_data = dict(recipient.data or {})
     raw_name = (
         r_data.get("recipient_name") or
         r_data.get("student_name") or

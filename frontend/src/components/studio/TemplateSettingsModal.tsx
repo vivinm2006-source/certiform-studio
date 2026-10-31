@@ -17,6 +17,13 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
   const [templateName, setTemplateName] = useState(activeTemplate?.name || 'Certificate Template');
   const [pageFormat, setPageFormat] = useState(activeTemplate?.page_format || 'A4_LANDSCAPE');
   const [bgColor, setBgColor] = useState(activeTemplate?.background_color || '#FCFAF5');
+  const [signatureDate, setSignatureDate] = useState('October 27, 2026');
+  const [signatory1, setSignatory1] = useState(
+    activeTemplate?.elements.find(e => e.content && (e.content.includes('Marcus Vance') || e.content.includes('Signatory') || e.content.includes('Director') || e.content.includes('President')))?.content || 'Marcus Vance\nChief Academic Officer'
+  );
+  const [signatory2, setSignatory2] = useState(
+    activeTemplate?.elements.find(e => e.content && (e.content.includes('Elena Rostova') || e.content.includes('Instructor') || e.content.includes('Dean') || e.content.includes('Judge')))?.content || 'Elena Rostova\nLead Instructor'
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -128,6 +135,28 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
         background_color: bgColor,
       });
 
+      let updatedElements = [...activeTemplate.elements];
+      if (signatureDate) {
+        updatedElements = updatedElements.map(el => {
+          if (el.binding_key === 'event_date' || el.binding_key === 'signature_date' || (el.content && (el.content.includes('/202') || el.content.toLowerCase().includes('date') || el.content.includes('October')))) {
+            return { ...el, content: signatureDate };
+          }
+          return el;
+        });
+      }
+      if (signatory1) {
+        const s1 = updatedElements.find(e => e.content && (e.content.includes('Marcus Vance') || e.content.includes('Signatory') || e.content.includes('Director') || e.content.includes('President')));
+        if (s1) {
+          updatedElements = updatedElements.map(e => e.id === s1.id ? { ...e, content: signatory1 } : e);
+        }
+      }
+      if (signatory2) {
+        const s2 = updatedElements.find(e => e.content && (e.content.includes('Elena Rostova') || e.content.includes('Instructor') || e.content.includes('Dean') || e.content.includes('Judge')));
+        if (s2) {
+          updatedElements = updatedElements.map(e => e.id === s2.id ? { ...e, content: signatory2 } : e);
+        }
+      }
+
       useProjectStore.setState((s) => ({
         activeTemplate: s.activeTemplate ? {
           ...s.activeTemplate,
@@ -136,8 +165,11 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
           width_pt: selectedFormat.width,
           height_pt: selectedFormat.height,
           background_color: bgColor,
+          elements: updatedElements,
         } : null,
       }));
+
+      await api.batchSyncElements(activeTemplate.id, updatedElements);
 
       setIsSaving(false);
       onClose();
@@ -182,12 +214,12 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-brand-900 font-bold text-xs">
                 <Upload className="h-4 w-4 text-brand-600" />
-                <span>Upload Your Certificate Design (PNG / JPG / WEBP)</span>
+                <span>Upload Your Certificate Design (SVG Vector / PNG / JPG / WEBP)</span>
               </div>
-              <span className="text-[10px] text-brand-600 font-medium">300 DPI Supported</span>
+              <span className="text-[10px] text-brand-600 font-medium">Scalable Vector & 300 DPI Supported</span>
             </div>
             <p className="text-[11px] text-brand-800/80 leading-relaxed">
-              Have an existing certificate designed in Canva, Photoshop, or from your institution? Upload it as the background image and place dynamic name/date variables directly on top!
+              Have an existing certificate designed in Canva, Illustrator, SVG, Photoshop, or from your institution? Upload it as vector or high-res artwork and place dynamic name/date variables directly on top!
             </p>
 
             <div className="flex items-center space-x-3 pt-1">
@@ -198,11 +230,11 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
                   <Upload className="h-4 w-4 text-brand-600" />
                 )}
                 <span className="text-xs font-semibold text-slate-700">
-                  {isUploading ? 'Uploading Image...' : 'Choose Certificate Image File'}
+                  {isUploading ? 'Uploading Image / Vector...' : 'Choose Certificate SVG or Image File'}
                 </span>
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp"
                   onChange={handleUploadCustomTemplate}
                   className="hidden"
                 />
@@ -296,6 +328,47 @@ export const TemplateSettingsModal: React.FC<TemplateSettingsModalProps> = ({ is
                   onChange={(e) => setBgColor(e.target.value)}
                   className="w-24 text-xs font-mono border border-slate-300 rounded-lg px-2 py-1.5 text-center text-slate-700"
                 />
+              </div>
+            </div>
+
+            {/* SECTION: SIGNATURE & CONFORMANCE DATE (SGH DATE) SETTINGS */}
+            <div className="space-y-3 pt-3 border-t border-slate-200">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Signatories & Event Date Settings (sgh date)
+              </h3>
+              
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">Default Signature / Event Date (sgh date)</label>
+                <input
+                  type="text"
+                  value={signatureDate}
+                  onChange={(e) => setSignatureDate(e.target.value)}
+                  placeholder="e.g. 26/10/2026 or October 27, 2026"
+                  className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700 block">Signatory 1 (Name & Title)</label>
+                  <input
+                    type="text"
+                    value={signatory1}
+                    onChange={(e) => setSignatory1(e.target.value)}
+                    placeholder="e.g. Marcus Vance\nChief Academic Officer"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700 block">Signatory 2 (Name & Title)</label>
+                  <input
+                    type="text"
+                    value={signatory2}
+                    onChange={(e) => setSignatory2(e.target.value)}
+                    placeholder="e.g. Elena Rostova\nLead Instructor"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:border-brand-500 outline-none"
+                  />
+                </div>
               </div>
             </div>
           </div>

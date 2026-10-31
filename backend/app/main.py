@@ -31,6 +31,16 @@ try:
 except Exception:
     pass
 
+@app.on_event("startup")
+async def startup_event():
+    """Optimize AnyIO worker thread pool for high concurrency throughput."""
+    try:
+        import anyio
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        limiter.total_tokens = 500
+    except Exception as e:
+        print("Thread limiter optimization warning:", e)
+
 # Include Routers under API prefix
 api_prefix = settings.API_V1_STR
 app.include_router(projects.router, prefix=api_prefix)

@@ -10,7 +10,8 @@ import { useCanvasStore } from '../../store/useCanvasStore';
 import { api } from '../../services/api';
 
 export const LeftPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'text' | 'elements' | 'templates' | 'signatures' | 'qr' | 'layers'>('templates');
+  const [activeTab, setActiveTab] = useState<'text' | 'elements' | 'graphics' | 'templates' | 'signatures' | 'qr' | 'layers'>('templates');
+  const [isUploadingAsset, setIsUploadingAsset] = useState(false);
   const { 
     activeTemplate, templates, selectTemplate, setTemplateGalleryOpen, 
     activeForm, cleanTemplateForArtwork 
@@ -20,6 +21,44 @@ export const LeftPanel: React.FC = () => {
     updateElementProps, deleteElement, reorderElement,
     isLeftPanelOpen, setLeftPanelOpen 
   } = useCanvasStore();
+
+  const handleUploadElementAsset = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0] || !activeTemplate) return;
+    const file = e.target.files[0];
+    setIsUploadingAsset(true);
+    try {
+      const res = await api.uploadElementAsset(activeTemplate.id, file);
+      if (res && res.asset_url) {
+        addElement({
+          element_type: 'image',
+          asset_url: res.asset_url,
+          width: 0.14,
+          height: 0.18,
+          x: 0.43,
+          y: 0.72,
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to upload vector/image asset:', err);
+      // Fallback: read as base64 data URI
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        addElement({
+          element_type: 'image',
+          asset_url: dataUrl,
+          width: 0.14,
+          height: 0.18,
+          x: 0.43,
+          y: 0.72,
+        });
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingAsset(false);
+      e.target.value = '';
+    }
+  };
 
   const handleUploadBg = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0] || !activeTemplate) return;
@@ -80,7 +119,7 @@ export const LeftPanel: React.FC = () => {
           </button>
         </div>
       {/* Icon Navigation Bar */}
-      <div className="grid grid-cols-6 border-b border-slate-200 p-1 bg-slate-50 text-slate-500">
+      <div className="grid grid-cols-7 border-b border-slate-200 p-1 bg-slate-50 text-slate-500">
         <button
           onClick={() => setActiveTab('text')}
           className={`p-2 rounded flex flex-col items-center justify-center text-[10px] ${activeTab === 'text' ? 'bg-white text-brand-600 shadow-xs font-semibold' : 'hover:text-slate-900'}`}
@@ -94,6 +133,13 @@ export const LeftPanel: React.FC = () => {
           title="Shapes & Lines"
         >
           <Shapes className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setActiveTab('graphics')}
+          className={`p-2 rounded flex flex-col items-center justify-center text-[10px] ${activeTab === 'graphics' ? 'bg-white text-brand-600 shadow-xs font-semibold' : 'hover:text-slate-900'}`}
+          title="Vector Images & Seals"
+        >
+          <ImageIcon className="h-4 w-4" />
         </button>
         <button
           onClick={() => setActiveTab('signatures')}
@@ -220,6 +266,97 @@ export const LeftPanel: React.FC = () => {
                 <div className="w-7 h-7 rounded-full bg-amber-50 border border-gold-500" />
                 <span className="text-xs text-slate-700">Gold Seal</span>
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* GRAPHICS & VECTOR EMBLEMS TAB */}
+        {activeTab === 'graphics' && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Vector Graphics & Seals</h3>
+              <p className="text-[11px] text-slate-500">
+                Upload custom SVG vector logos or insert official scholastic seals with zero loss in resolution.
+              </p>
+            </div>
+
+            {/* Upload Custom SVG or Logo */}
+            <div>
+              <label className="w-full border-2 border-dashed border-brand-300 hover:border-brand-500 rounded-xl p-3.5 flex flex-col items-center justify-center cursor-pointer transition-colors bg-white hover:bg-brand-50/40 shadow-2xs">
+                {isUploadingAsset ? (
+                  <RefreshCw className="h-5 w-5 text-brand-600 animate-spin mb-1" />
+                ) : (
+                  <Upload className="h-5 w-5 text-brand-600 mb-1" />
+                )}
+                <span className="text-xs font-semibold text-slate-800">
+                  {isUploadingAsset ? 'Uploading...' : 'Upload SVG Vector or Image'}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">SVG, PNG, JPG, WEBP</span>
+                <input
+                  type="file"
+                  accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp"
+                  onChange={handleUploadElementAsset}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Built-in Vector Emblems & Seals */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-slate-700 block">Preset Vector Seals & Medallions</span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  {
+                    name: 'Academic Laurel',
+                    desc: 'Gold Laureate',
+                    svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="%23B45309" stroke-width="2.5"><circle cx="50" cy="50" r="44" stroke="%23D97706" stroke-width="2" stroke-dasharray="3 3"/><path d="M50 20 C35 32 30 50 35 65 C38 72 45 78 50 82 C55 78 62 72 65 65 C70 50 65 32 50 20 Z" fill="%23FEF3C7" stroke="%23B45309"/><path d="M50 30 L53 38 L62 38 L55 43 L58 52 L50 47 L42 52 L45 43 L38 38 L47 38 Z" fill="%23D97706"/><text x="50" y="70" font-size="7" font-weight="bold" fill="%2378350F" text-anchor="middle" font-family="serif">EXCELLENCE</text></svg>',
+                  },
+                  {
+                    name: 'Official Stamp',
+                    desc: 'Verified Seal',
+                    svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="%231E3A8A" stroke-width="3"/><circle cx="50" cy="50" r="40" stroke="%233B82F6" stroke-width="1.5" stroke-dasharray="4 2"/><circle cx="50" cy="50" r="32" fill="%23EFF6FF" stroke="%231E3A8A" stroke-width="1.5"/><path d="M42 50 L47 55 L58 44" stroke="%231E3A8A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><text x="50" y="30" font-size="5.5" font-weight="bold" fill="%231E3A8A" text-anchor="middle" font-family="sans-serif">OFFICIAL SEAL</text><text x="50" y="72" font-size="5.5" font-weight="bold" fill="%231E3A8A" text-anchor="middle" font-family="sans-serif">VERIFIED</text></svg>',
+                  },
+                  {
+                    name: 'Star Distinction',
+                    desc: 'Honor Rosette',
+                    svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" fill="%23FEF3C7" stroke="%23D97706" stroke-width="3"/><circle cx="50" cy="50" r="38" stroke="%23B45309" stroke-width="1.5" stroke-dasharray="3 2"/><polygon points="50,22 58,38 76,40 62,52 66,70 50,60 34,70 38,52 24,40 42,38" fill="%23F59E0B" stroke="%23B45309" stroke-width="1.5"/><text x="50" y="80" font-size="6" font-weight="bold" fill="%2392400E" text-anchor="middle" font-family="sans-serif">DISTINCTION</text></svg>',
+                  },
+                  {
+                    name: 'Honors Shield',
+                    desc: 'Heraldic Green',
+                    svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><path d="M50 15 Q75 15 80 35 Q80 70 50 90 Q20 70 20 35 Q25 15 50 15 Z" fill="%23F0FDF4" stroke="%2315803D" stroke-width="3"/><path d="M50 22 Q70 22 74 38 Q74 65 50 82 Q26 65 26 38 Q30 22 50 22 Z" stroke="%2322C55E" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M50 32 L53 41 L62 41 L55 46 L57 55 L50 50 L43 55 L45 46 L38 41 L47 41 Z" fill="%2316A34A"/><text x="50" y="68" font-size="6" font-weight="bold" fill="%23166534" text-anchor="middle" font-family="serif">MERIT</text></svg>',
+                  },
+                  {
+                    name: 'Excellence Ribbon',
+                    desc: 'Presidential Crimson',
+                    svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><path d="M38 65 L32 92 L50 82 L68 92 L62 65" fill="%23BE185D" stroke="%239D174D" stroke-width="2"/><circle cx="50" cy="45" r="32" fill="%23FDF2F8" stroke="%23BE185D" stroke-width="3"/><circle cx="50" cy="45" r="26" stroke="%23DB2777" stroke-width="1.5" stroke-dasharray="3 2"/><text x="50" y="44" font-size="7" font-weight="bold" fill="%239D174D" text-anchor="middle" font-family="serif">FIRST</text><text x="50" y="53" font-size="6" font-weight="bold" fill="%239D174D" text-anchor="middle" font-family="serif">CLASS</text></svg>',
+                  },
+                  {
+                    name: 'Security Rosette',
+                    desc: 'Slate Authenticated',
+                    svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" fill="%23F8FAFC" stroke="%23334155" stroke-width="2.5"/><circle cx="50" cy="50" r="39" stroke="%2364748B" stroke-width="1" stroke-dasharray="2 2"/><circle cx="50" cy="50" r="30" fill="%23F1F5F9" stroke="%23475569" stroke-width="1.5"/><path d="M50 32 L50 68 M32 50 L68 50" stroke="%2394A3B8" stroke-width="1"/><polygon points="50,38 54,46 63,47 56,53 58,62 50,57 42,62 44,53 37,47 46,46" fill="%23475569"/><text x="50" y="75" font-size="5" font-weight="bold" fill="%231E293B" text-anchor="middle" font-family="sans-serif">AUTHENTIC</text></svg>',
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.name}
+                    onClick={() => addElement({
+                      element_type: 'image',
+                      asset_url: item.svg,
+                      width: 0.12,
+                      height: 0.16,
+                      x: 0.44,
+                      y: 0.70,
+                    })}
+                    className="p-2.5 border border-slate-200 hover:border-brand-500 rounded-lg hover:bg-slate-50 transition-colors flex flex-col items-center text-center space-y-1.5 shadow-2xs"
+                  >
+                    <img src={item.svg} alt={item.name} className="w-12 h-12 object-contain" />
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-800">{item.name}</div>
+                      <div className="text-[9px] text-slate-400">{item.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -487,7 +624,7 @@ export const LeftPanel: React.FC = () => {
                   <label className="w-full border border-dashed border-purple-300 hover:border-purple-500 rounded-lg p-2 flex items-center justify-center space-x-2 cursor-pointer transition-colors bg-white hover:bg-purple-50/50">
                     <Upload className="h-3.5 w-3.5 text-purple-600" />
                     <span className="text-[11px] font-semibold text-purple-900">Replace Artwork File</span>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
+                    <input type="file" accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
                   </label>
                   <button
                     onClick={async () => {
@@ -521,8 +658,8 @@ export const LeftPanel: React.FC = () => {
                   <label className="w-full border-2 border-dashed border-brand-300 hover:border-brand-500 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-colors bg-white hover:bg-brand-50/40 shadow-2xs">
                     <Upload className="h-5 w-5 text-brand-600 mb-1" />
                     <span className="text-xs font-semibold text-slate-800">Upload Your Own Certificate</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">Canva, Photoshop PNG or JPG</span>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
+                    <span className="text-[10px] text-slate-400 mt-0.5">SVG Vector, Canva, Photoshop, PNG or JPG</span>
+                    <input type="file" accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp" onChange={handleUploadBg} className="hidden" />
                   </label>
                 </div>
 

@@ -10,6 +10,7 @@ from reportlab.lib.utils import ImageReader
 from app.config import settings
 from app.engine.coordinates import CoordinateTransformer
 from app.engine.qr_generator import generate_qr_bytes
+from app.services.recipient_service import clean_corrupted_s
 
 def sanitize_text_for_pdf(text: str) -> str:
     """
@@ -18,6 +19,9 @@ def sanitize_text_for_pdf(text: str) -> str:
     """
     if not text:
         return ""
+
+    # Clean corrupted 's' substitutions (Cyrillic Ze or digit 3 in word contexts)
+    text = clean_corrupted_s(text)
 
     # Normalize typographic quotes, dashes, and symbols to standard Latin-1 ASCII
     text = text.replace("“", '"').replace("”", '"')
@@ -48,6 +52,42 @@ def sanitize_text_for_pdf(text: str) -> str:
                     base = ''.join(c for c in decomposed if not unicodedata.combining(c))
                     result.append(base if base else '')
         return ''.join(result)
+
+def is_svg_asset(asset_url: Optional[str]) -> bool:
+    if not asset_url:
+        return False
+    if "image/svg+xml" in asset_url or asset_url.endswith(".svg") or (isinstance(asset_url, str) and "<svg" in asset_url[:120]):
+        return True
+    return False
+
+def decode_svg_to_drawing(asset_url: Optional[str]):
+    """Decode base64 SVG data URL, raw SVG string, or storage path into ReportLab Drawing for vector PDF rendering."""
+    if not asset_url:
+        return None
+    try:
+        from svglib.svglib import svg2rlg
+        if asset_url.startswith("data:image/svg+xml"):
+            if ";base64," in asset_url:
+                header, encoded = asset_url.split(";base64,", 1)
+                svg_bytes = base64.b64decode(encoded)
+                return svg2rlg(io.BytesIO(svg_bytes))
+            else:
+                header, raw_svg = asset_url.split(",", 1)
+                import urllib.parse
+                svg_str = urllib.parse.unquote(raw_svg)
+                return svg2rlg(io.StringIO(svg_str))
+        elif asset_url.strip().startswith("<svg"):
+            return svg2rlg(io.StringIO(asset_url.strip()))
+        elif os.path.isfile(asset_url) and asset_url.endswith(".svg"):
+            return svg2rlg(asset_url)
+        elif asset_url.startswith("/storage/") and asset_url.endswith(".svg"):
+            relative = asset_url.replace("/storage/", "")
+            local_path = settings.STORAGE_DIR / relative
+            if local_path.exists():
+                return svg2rlg(str(local_path))
+    except Exception as e:
+        print(f"Failed to decode SVG vector asset: {e}")
+    return None
 
 def decode_asset_to_reader(asset_url: Optional[str]) -> Optional[ImageReader]:
     """Decode base64 data URL or load from storage path as ReportLab ImageReader."""
@@ -122,9 +162,14 @@ def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], cr
                     val = merged[cand]
                     break
                     
-        return str(val) if val is not None else match.group(0)
+        return str(val) if val is not None else ""
     
-    return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+    resolved = re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+    # Collapse multiple consecutive spaces so text has no empty gaps
+    resolved = re.sub(r'[ \t]{2,}', ' ', resolved)
+    # Clean dangling space before punctuation (e.g. " ," -> ",")
+    resolved = re.sub(r'\s+([,.:;])', r'\1', resolved)
+    return resolved.strip()
 
 def extract_element_text(el: Dict[str, Any], recipient_data: Dict[str, Any], credential_id: Optional[str] = None) -> str:
     """
@@ -268,12 +313,24 @@ def render_page_to_canvas(
         c.setFillColor(white)
     c.rect(0, 0, width_pt, height_pt, fill=1, stroke=0)
     
-    # 2. Background image asset if any
+    # 2. Background image or vector asset if any
     bg_asset_url = template_dict.get("background_asset_url")
     if bg_asset_url:
-        bg_reader = decode_asset_to_reader(bg_asset_url)
-        if bg_reader:
-            c.drawImage(bg_reader, 0, 0, width=width_pt, height=height_pt, preserveAspectRatio=False)
+        if is_svg_asset(bg_asset_url):
+            bg_drawing = decode_svg_to_drawing(bg_asset_url)
+            if bg_drawing:
+                try:
+                    from reportlab.graphics import renderPDF
+                    scale_x = width_pt / max(1.0, bg_drawing.width)
+                    scale_y = height_pt / max(1.0, bg_drawing.height)
+                    bg_drawing.scale(scale_x, scale_y)
+                    renderPDF.draw(bg_drawing, c, 0, 0)
+                except Exception as e_draw:
+                    print(f"Error drawing SVG background: {e_draw}")
+        else:
+            bg_reader = decode_asset_to_reader(bg_asset_url)
+            if bg_reader:
+                c.drawImage(bg_reader, 0, 0, width=width_pt, height=height_pt, preserveAspectRatio=False)
             
     # 3. Sort elements by layer_order
     sorted_elements = sorted(elements, key=lambda e: e.get("layer_order", 0))
@@ -305,10 +362,20 @@ def render_page_to_canvas(
             
             font_name = get_reportlab_font_name(font_family, font_weight, font_style)
             
+            # Detect recipient name element to guarantee 100% uniform font family and font size across all recipients
+            is_name_field = (
+                el_type == "dynamic_text"
+                and (
+                    el.get("binding_key") in ("recipient_name", "name", "student_name", "full_name", "participant_name", "candidate_name")
+                    or "name" in (el.get("binding_key") or "").lower()
+                )
+            ) or el.get("uniform_font_size", False)
+
             # Auto-wrap words for multi-word text to prevent horizontal overflow and clipping
             raw_lines = text_val.split("\n")
             lines = []
             c.setFont(font_name, font_size_pt)
+            wrap_w = max(rw, width_pt * 0.82) if (is_name_field and el.get("text_align", "center") == "center") else rw
             for r_line in raw_lines:
                 if not r_line.strip():
                     lines.append("")
@@ -317,7 +384,7 @@ def render_page_to_canvas(
                 current_line = ""
                 for word in words:
                     test_line = f"{current_line} {word}".strip() if current_line else word
-                    if c.stringWidth(test_line, font_name, font_size_pt) <= rw or not current_line:
+                    if c.stringWidth(test_line, font_name, font_size_pt) <= wrap_w or not current_line:
                         current_line = test_line
                     else:
                         lines.append(current_line)
@@ -331,8 +398,9 @@ def render_page_to_canvas(
             line_height_pt = font_size_pt * el.get("line_height", 1.3)
             total_text_h = len(lines) * line_height_pt
             
-            # Auto-fit text if enabled: reduce font size if string is wider than box
-            if el.get("auto_fit_text", True) and text_val:
+            # Auto-fit text: reduce font size if non-name text overflows bounding box
+            # For name fields, font family and font size are strictly locked uniform across all recipients
+            if not is_name_field and el.get("auto_fit_text", True) and text_val:
                 curr_size = font_size_pt
                 while curr_size > 8:
                     c.setFont(font_name, curr_size)
@@ -368,7 +436,8 @@ def render_page_to_canvas(
             for l_idx, line_str in enumerate(lines):
                 line_w = c.stringWidth(line_str, font_name, font_size_pt)
                 if text_align == "center":
-                    dest_x = rx + (rw - line_w) / 2.0
+                    center_x = rx + rw / 2.0
+                    dest_x = center_x - line_w / 2.0
                 elif text_align == "right":
                     dest_x = rx + rw - line_w
                 else:  # left
@@ -389,16 +458,33 @@ def render_page_to_canvas(
             
         elif el_type in ("image", "signature"):
             asset_url = el.get("asset_url")
-            img_reader = decode_asset_to_reader(asset_url)
-            if img_reader:
-                # Maintain aspect ratio within element box
-                img_w, img_h = img_reader.getSize()
-                ratio = min(rw / img_w, rh / img_h)
-                dest_w = img_w * ratio
-                dest_h = img_h * ratio
-                paste_x = rx + (rw - dest_w) / 2.0
-                paste_y = ry + (rh - dest_h) / 2.0
-                c.drawImage(img_reader, paste_x, paste_y, width=dest_w, height=dest_h, mask='auto')
+            if is_svg_asset(asset_url):
+                svg_drawing = decode_svg_to_drawing(asset_url)
+                if svg_drawing:
+                    try:
+                        from reportlab.graphics import renderPDF
+                        orig_w = max(1.0, svg_drawing.width)
+                        orig_h = max(1.0, svg_drawing.height)
+                        ratio = min(rw / orig_w, rh / orig_h)
+                        dest_w = orig_w * ratio
+                        dest_h = orig_h * ratio
+                        paste_x = rx + (rw - dest_w) / 2.0
+                        paste_y = ry + (rh - dest_h) / 2.0
+                        svg_drawing.scale(ratio, ratio)
+                        renderPDF.draw(svg_drawing, c, paste_x, paste_y)
+                    except Exception as e_vdraw:
+                        print(f"Error drawing SVG element: {e_vdraw}")
+            else:
+                img_reader = decode_asset_to_reader(asset_url)
+                if img_reader:
+                    # Maintain aspect ratio within element box
+                    img_w, img_h = img_reader.getSize()
+                    ratio = min(rw / img_w, rh / img_h)
+                    dest_w = img_w * ratio
+                    dest_h = img_h * ratio
+                    paste_x = rx + (rw - dest_w) / 2.0
+                    paste_y = ry + (rh - dest_h) / 2.0
+                    c.drawImage(img_reader, paste_x, paste_y, width=dest_w, height=dest_h, mask='auto')
                 
         elif el_type == "shape":
             shape_type = el.get("shape_type", "rectangle")

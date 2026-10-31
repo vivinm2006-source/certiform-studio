@@ -56,6 +56,14 @@ export const api = {
       body: fd,
     });
   },
+  uploadElementAsset: async (templateId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request<{ success: boolean; asset_url: string; format: string }>(`/templates/${templateId}/upload-element-asset`, {
+      method: 'POST',
+      body: fd,
+    });
+  },
 
   // Forms
   getForm: (id: string) => request<Form>(`/forms/${id}`),
@@ -99,6 +107,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ rows, column_mapping, clear_existing })
     }),
+  sanitizeProjectRecipientsS: (projectId: string) =>
+    request<{ success: boolean; cleaned_count: number; total_recipients: number }>(
+      `/projects/${projectId}/recipients/sanitize-s`,
+      { method: 'POST' }
+    ),
+  fillRecipientGaps: (projectId: string) =>
+    request<{ success: boolean; filled_count: number; total_recipients: number }>(
+      `/projects/${projectId}/recipients/fill-gaps`,
+      { method: 'POST' }
+    ),
   getBulkPdfUrl: (projectId: string, templateId?: string) => 
     `/api/v1/projects/${projectId}/export/bulk-pdf${templateId ? `?template_id=${templateId}` : ''}`,
   getBulkZipUrl: (projectId: string, templateId?: string) => 

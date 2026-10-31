@@ -5,7 +5,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, Layers, Sparkles,
   Download, Edit3, X, RefreshCw, Sliders, Upload,
   PanelLeft, PanelRight, ChevronDown, Check, Plus, LayoutTemplate,
-  ChevronLeft, ChevronRight, User
+  ChevronLeft, ChevronRight, User, FileText
 } from 'lucide-react';
 import { CanvasElement } from '../../types';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -13,6 +13,7 @@ import { useCanvasStore } from '../../store/useCanvasStore';
 import { CanvasOverlayInput } from './CanvasOverlayInput';
 import { TemplateSettingsModal } from './TemplateSettingsModal';
 import { api } from '../../services/api';
+import { cleanCorruptedS } from '../../utils/textCleaner';
 
 // Helper to resolve text binding variables in browser preview
 function resolveText(templateStr: string | undefined, data: Record<string, any>, credentialId?: string): string {
@@ -91,7 +92,7 @@ function resolveText(templateStr: string | undefined, data: Record<string, any>,
       }
     }
 
-    return val !== undefined ? String(val) : `{{${cleanKey}}}`;
+    return val !== undefined ? cleanCorruptedS(String(val)) : `{{${cleanKey}}}`;
   });
 }
 
@@ -102,12 +103,12 @@ function resolveDynamicValue(
   credentialId?: string
 ): string {
   if (!data || Object.keys(data).length === 0) {
-    return content || '';
+    return cleanCorruptedS(content || '');
   }
 
   // 1. If content contains {{...}} tags, always resolve template tags first
   if (content && content.includes('{{')) {
-    return resolveText(content, data, credentialId);
+    return cleanCorruptedS(resolveText(content, data, credentialId));
   }
 
   // 2. Direct binding key lookup
@@ -200,7 +201,7 @@ function resolveDynamicValue(
 
 export const CanvasWorkspace: React.FC = () => {
   const { 
-    activeTemplate, templates, selectTemplate, duplicateTemplate, 
+    currentProject, activeTemplate, templates, selectTemplate, duplicateTemplate, 
     deleteTemplate, setTemplateGalleryOpen, recipients, 
     activeRecipientIndex, setActiveRecipientIndex, updateActiveRecipientData,
     cleanTemplateForArtwork
@@ -243,6 +244,7 @@ export const CanvasWorkspace: React.FC = () => {
     (e.content && e.content.toLowerCase().includes('student name'))
   );
   const currentStudentFont = studentElement?.font_family || 'Great Vibes';
+  const currentStudentFontSize = studentElement?.font_size || 36;
 
   const handleStudentFontChange = (font: string) => {
     if (studentElement) {
@@ -250,38 +252,46 @@ export const CanvasWorkspace: React.FC = () => {
     }
   };
 
-  const handleUpdateCertificateWord = (field: 'name' | 'topic' | 'dept' | 'dob' | 'date' | 'venue' | 'title' | 'signatory', value: string) => {
+  const handleStudentFontSizeChange = (size: number) => {
+    if (studentElement) {
+      updateElementProps(studentElement.id, { font_size: size });
+    }
+  };
+
+  const handleUpdateCertificateWord = (field: 'name' | 'topic' | 'dept' | 'dob' | 'date' | 'sgh_date' | 'venue' | 'title' | 'signatory' | 'signatory_1' | 'signatory_2', value: string) => {
+    const cleanVal = cleanCorruptedS(value);
     if (field === 'name') {
-      updateActiveRecipientData('recipient_name', value);
-      if (studentElement) updateElementProps(studentElement.id, { content: value });
+      updateActiveRecipientData('recipient_name', cleanVal);
+      if (studentElement) updateElementProps(studentElement.id, { content: cleanVal });
     } else if (field === 'topic') {
-      updateActiveRecipientData('event_name', value);
+      updateActiveRecipientData('event_name', cleanVal);
       const el = activeTemplate?.elements.find(e => 
         e.binding_key === 'event_name' || 
         (e.content && (e.content.toUpperCase().includes('STARTUP') || e.content.toUpperCase().includes('ENTREPRENEURSHIP') || e.content.toUpperCase().includes('AI')))
       );
-      if (el) updateElementProps(el.id, { content: value });
+      if (el) updateElementProps(el.id, { content: cleanVal });
     } else if (field === 'dept') {
-      updateActiveRecipientData('department', value);
+      updateActiveRecipientData('department', cleanVal);
       const el = activeTemplate?.elements.find(e => 
         e.binding_key === 'department' || 
         (e.content && e.content.toLowerCase().includes('department'))
       );
-      if (el) updateElementProps(el.id, { content: value });
+      if (el) updateElementProps(el.id, { content: cleanVal });
     } else if (field === 'dob') {
-      updateActiveRecipientData('dob', value);
+      updateActiveRecipientData('dob', cleanVal);
       const el = activeTemplate?.elements.find(e => 
         e.binding_key === 'dob' || e.binding_key === 'date_of_birth' ||
         (e.content && (e.content.toLowerCase().includes('dob') || e.content.toLowerCase().includes('birth')))
       );
-      if (el) updateElementProps(el.id, { content: value });
-    } else if (field === 'date') {
-      updateActiveRecipientData('event_date', value);
-      const el = activeTemplate?.elements.find(e => 
-        e.binding_key === 'event_date' || 
-        (e.content && (e.content.includes('/202') || e.content.toLowerCase().includes('date')))
-      );
-      if (el) updateElementProps(el.id, { content: value });
+      if (el) updateElementProps(el.id, { content: cleanVal });
+    } else if (field === 'date' || field === 'sgh_date') {
+      updateActiveRecipientData('event_date', cleanVal);
+      updateActiveRecipientData('signature_date', cleanVal);
+      const dateEls = activeTemplate?.elements.filter(e => 
+        e.binding_key === 'event_date' || e.binding_key === 'signature_date' ||
+        (e.content && (e.content.includes('/202') || e.content.toLowerCase().includes('date') || e.content.includes('October') || e.content.includes('November')))
+      ) || [];
+      dateEls.forEach(el => updateElementProps(el.id, { content: cleanVal }));
     } else if (field === 'venue') {
       updateActiveRecipientData('institution', value);
       const el = activeTemplate?.elements.find(e => 
@@ -294,9 +304,14 @@ export const CanvasWorkspace: React.FC = () => {
         e.content && (e.content.includes('PARTICIPATION') || e.content.includes('EXCELLENCE') || e.content.includes('CERTIFICATE'))
       );
       if (el) updateElementProps(el.id, { content: value });
-    } else if (field === 'signatory') {
+    } else if (field === 'signatory' || field === 'signatory_1') {
       const el = activeTemplate?.elements.find(e => 
-        e.content && (e.content.includes('Signatory') || e.content.includes('Director') || e.content.includes('President'))
+        e.content && (e.content.includes('Marcus Vance') || e.content.includes('Signatory') || e.content.includes('Director') || e.content.includes('President') || e.content.includes('Chief'))
+      );
+      if (el) updateElementProps(el.id, { content: value });
+    } else if (field === 'signatory_2') {
+      const el = activeTemplate?.elements.find(e => 
+        e.content && (e.content.includes('Elena Rostova') || e.content.includes('Dean') || e.content.includes('Instructor') || e.content.includes('Judge'))
       );
       if (el) updateElementProps(el.id, { content: value });
     }
@@ -981,6 +996,17 @@ export const CanvasWorkspace: React.FC = () => {
             <span className="hidden sm:inline">PNG</span>
           </button>
 
+          {/* Bulk PDF Direct Download Button */}
+          <a
+            href={`/api/v1/projects/${currentProject?.id}/export/bulk-pdf?template_id=${activeTemplate?.id || ''}`}
+            download
+            className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded text-[11px] font-bold flex items-center space-x-1 shadow-2xs transition-colors"
+            title="Download all recipient certificates as a single multi-page consolidated PDF document"
+          >
+            <FileText className="h-3 w-3" />
+            <span>Bulk PDF</span>
+          </a>
+
           <div className="h-4 w-[1px] bg-slate-200 mx-0.5" />
 
           {/* Right Side: Toggle Properties Panel */}
@@ -1366,15 +1392,21 @@ export const CanvasWorkspace: React.FC = () => {
             <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-amber-900 block">Student / Recipient Name</label>
-                <span className="text-[10px] text-amber-700 font-mono">Font: {currentStudentFont}</span>
+                <div className="flex items-center space-x-1.5 text-[10px] text-amber-800 font-mono font-medium">
+                  <span>{currentStudentFont}</span>
+                  <span>•</span>
+                  <span>{currentStudentFontSize}pt</span>
+                </div>
               </div>
               <input
                 type="text"
-                value={recData.recipient_name || recData.full_name || recData.name || ''}
+                value={cleanCorruptedS(recData.recipient_name || recData.full_name || recData.name || '')}
                 onChange={(e) => handleUpdateCertificateWord('name', e.target.value)}
-                placeholder="Enter student name (e.g. Vivin M)"
+                placeholder="Enter student name (e.g. Sree Sukanth)"
                 className="w-full border border-amber-300 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-amber-500 font-medium shadow-2xs"
               />
+
+              {/* Font Family Quick Select */}
               <div className="space-y-1 pt-1">
                 <span className="text-[10px] font-semibold text-amber-800 block">Student Name Font:</span>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -1398,6 +1430,43 @@ export const CanvasWorkspace: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Font Size Control */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] font-semibold text-amber-800">Font Size (pt):</span>
+                <div className="flex items-center space-x-1">
+                  <button
+                    type="button"
+                    onClick={() => handleStudentFontSizeChange(Math.max(12, currentStudentFontSize - 2))}
+                    className="w-6 h-6 flex items-center justify-center bg-white border border-amber-300 rounded text-amber-900 font-bold hover:bg-amber-100"
+                    title="Decrease font size"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={12}
+                    max={120}
+                    value={currentStudentFontSize}
+                    onChange={(e) => handleStudentFontSizeChange(Number(e.target.value) || 36)}
+                    className="w-14 text-center border border-amber-300 bg-white rounded px-1.5 py-0.5 text-xs font-mono text-slate-800 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleStudentFontSizeChange(Math.min(120, currentStudentFontSize + 2))}
+                    className="w-6 h-6 flex items-center justify-center bg-white border border-amber-300 rounded text-amber-900 font-bold hover:bg-amber-100"
+                    title="Increase font size"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Uniform Font & Size badge */}
+              <div className="flex items-center space-x-1.5 text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+                <Lock className="h-3 w-3 text-emerald-600 flex-shrink-0" />
+                <span>Uniform Font & Size: All certificates will share this exact font and size</span>
               </div>
             </div>
 
@@ -1437,14 +1506,41 @@ export const CanvasWorkspace: React.FC = () => {
               />
             </div>
 
-            {/* Date of Event */}
+            {/* Signature & Event Date (sgh date) */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-700 block">Date of Conformance / Conduct</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-800 block">Signature & Event Date (sgh date)</label>
+                <span className="text-[9px] text-brand-600 font-mono">{"{{event_date}}"}</span>
+              </div>
               <input
                 type="text"
-                value={recData.event_date || ''}
-                onChange={(e) => handleUpdateCertificateWord('date', e.target.value)}
-                placeholder="e.g. 26/10/2026"
+                value={recData.event_date || recData.signature_date || ''}
+                onChange={(e) => handleUpdateCertificateWord('sgh_date', e.target.value)}
+                placeholder="e.g. 26/10/2026 or October 27, 2026"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500 font-medium"
+              />
+            </div>
+
+            {/* Authorized Signatory 1 */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-700 block">Signatory 1 (Name & Title)</label>
+              <input
+                type="text"
+                defaultValue={activeTemplate?.elements.find(e => e.content && (e.content.includes('Marcus Vance') || e.content.includes('Signatory') || e.content.includes('Director') || e.content.includes('President')))?.content || 'Marcus Vance\nChief Academic Officer'}
+                onChange={(e) => handleUpdateCertificateWord('signatory_1', e.target.value)}
+                placeholder="e.g. Dr. Marcus Vance\nChief Academic Officer"
+                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {/* Authorized Signatory 2 */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-700 block">Signatory 2 (Name & Title)</label>
+              <input
+                type="text"
+                defaultValue={activeTemplate?.elements.find(e => e.content && (e.content.includes('Elena Rostova') || e.content.includes('Instructor') || e.content.includes('Dean') || e.content.includes('Judge')))?.content || 'Elena Rostova\nLead Instructor'}
+                onChange={(e) => handleUpdateCertificateWord('signatory_2', e.target.value)}
+                placeholder="e.g. Prof. Elena Rostova\nLead Instructor"
                 className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-brand-500"
               />
             </div>

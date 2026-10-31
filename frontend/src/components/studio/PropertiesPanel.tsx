@@ -351,16 +351,28 @@ export const PropertiesPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* Auto-fit text toggle */}
-            <label className="flex items-center space-x-2 pt-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedEl.auto_fit_text}
-                onChange={(e) => updateElementProps(selectedEl.id, { auto_fit_text: e.target.checked })}
-                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-              />
-              <span className="text-[11px] text-slate-600">Auto-shrink font size if text exceeds box width</span>
-            </label>
+            {/* Uniform font & size guarantee for Recipient Name / Auto-fit toggle for other text */}
+            {selectedEl.binding_key === 'recipient_name' || (selectedEl.binding_key && selectedEl.binding_key.toLowerCase().includes('name')) ? (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1">
+                <div className="flex items-center space-x-1.5 text-emerald-800 font-bold text-[11px]">
+                  <Lock className="h-3 w-3 text-emerald-600" />
+                  <span>Uniform Font & Size Enforced</span>
+                </div>
+                <p className="text-[10px] text-emerald-700 leading-normal">
+                  Every participant certificate is rendered with the identical font ({selectedEl.font_family}) and size ({selectedEl.font_size}pt). Auto-shrink is disabled to guarantee uniform appearance across the roster.
+                </p>
+              </div>
+            ) : (
+              <label className="flex items-center space-x-2 pt-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedEl.auto_fit_text}
+                  onChange={(e) => updateElementProps(selectedEl.id, { auto_fit_text: e.target.checked })}
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-[11px] text-slate-600">Auto-shrink font size if text exceeds box width</span>
+              </label>
+            )}
           </div>
         )}
 

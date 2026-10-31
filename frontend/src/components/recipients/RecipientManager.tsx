@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Upload, Download, Plus, Trash2, Search, 
   CheckCircle2, AlertCircle, FileSpreadsheet, Eye, 
-  ChevronLeft, ChevronRight, Filter, ArrowUpDown, Sparkles, FileText 
+  ChevronLeft, ChevronRight, Filter, ArrowUpDown, Sparkles, FileText, Check 
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { api } from '../../services/api';
 import { Recipient } from '../../types';
 import { BulkQuantityPdfModal } from './BulkQuantityPdfModal';
+import { cleanCorruptedS, cleanRecordDict } from '../../utils/textCleaner';
 
 export const RecipientManager: React.FC = () => {
   const { 
@@ -35,6 +36,9 @@ export const RecipientManager: React.FC = () => {
   const [mappedDobCol, setMappedDobCol] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
   const [clearExisting, setClearExisting] = useState(true);
+  const [isCleaningS, setIsCleaningS] = useState(false);
+  const [isFillingGaps, setIsFillingGaps] = useState(false);
+  const [cleanMessage, setCleanMessage] = useState<string | null>(null);
 
   // Filtered rows
   const filteredRecipients = recipients.filter((r) => {
@@ -53,7 +57,7 @@ export const RecipientManager: React.FC = () => {
     recipients.forEach((r) => {
       if (r.data) {
         Object.keys(r.data).forEach((k) => {
-          if (k && k.trim()) rawKeys.add(k.trim());
+          if (k && k.trim()) rawKeys.add(cleanCorruptedS(k.trim()));
         });
       }
     });
@@ -118,6 +122,40 @@ export const RecipientManager: React.FC = () => {
       refreshRecipients();
     } catch (err) {
       console.error('Failed to delete recipient:', err);
+    }
+  };
+
+  const handleSanitizeCorruptedS = async () => {
+    if (!currentProject) return;
+    setIsCleaningS(true);
+    setCleanMessage(null);
+    try {
+      const res = await api.sanitizeProjectRecipientsS(currentProject.id);
+      await refreshRecipients();
+      setCleanMessage(`Sanitized letter 's' substitutions across all ${res.total_recipients} recipient records.`);
+      setTimeout(() => setCleanMessage(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to clean recipients:', err);
+      alert('Failed to clean recipients: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsCleaningS(false);
+    }
+  };
+
+  const handleFillGapsWithoutSpace = async () => {
+    if (!currentProject) return;
+    setIsFillingGaps(true);
+    setCleanMessage(null);
+    try {
+      const res = await api.fillRecipientGaps(currentProject.id);
+      await refreshRecipients();
+      setCleanMessage(`Filled blank gap fields without spaces across all ${res.total_recipients} recipient records.`);
+      setTimeout(() => setCleanMessage(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to fill gaps:', err);
+      alert('Failed to fill gaps: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsFillingGaps(false);
     }
   };
 
@@ -251,14 +289,47 @@ export const RecipientManager: React.FC = () => {
             <span>Export Roster</span>
           </button>
 
-          {/* BULK GENERATE IN PDF BUTTON */}
+          {/* Clean corrupted 's' substitutions */}
+          <button
+            onClick={handleSanitizeCorruptedS}
+            disabled={isCleaningS}
+            className="flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-xs transition-colors"
+            title="Clean corrupted 's' characters (Cyrillic Ze з / 3 -> s) across all records"
+          >
+            <Check className="h-3.5 w-3.5 text-indigo-600" />
+            <span>{isCleaningS ? 'Fixing...' : "Fix 's' Letters"}</span>
+          </button>
+
+          {/* Fill blank gaps without spaces */}
+          <button
+            onClick={handleFillGapsWithoutSpace}
+            disabled={isFillingGaps}
+            className="flex items-center space-x-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-xs transition-colors"
+            title="Auto-fill missing event, date, and institution gap fields without any empty space"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-700" />
+            <span>{isFillingGaps ? 'Filling Gaps...' : 'Fill Blank Gaps'}</span>
+          </button>
+
+          {/* DIRECT 1-CLICK DOWNLOAD BULK PDF */}
+          <a
+            href={`/api/v1/projects/${currentProject?.id}/export/bulk-pdf?template_id=${activeTemplate?.id || ''}`}
+            download
+            className="flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold shadow-xs transition-colors"
+            title="Download all recipient certificates as a single consolidated multi-page PDF document"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Download Bulk PDF</span>
+          </a>
+
+          {/* BULK GENERATE IN PDF BUTTON (MODAL) */}
           <button
             onClick={() => setShowBulkPdfModal(true)}
-            className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold shadow-xs transition-colors"
-            title="Generate bulk PDF certificates for all spreadsheet recipients"
+            className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold shadow-xs transition-colors"
+            title="Advanced bulk generation options (ZIP of PDFs, consolidated PDF, PNG bundle)"
           >
-            <FileText className="h-3.5 w-3.5" />
-            <span>Bulk Generate in PDF</span>
+            <FileText className="h-3.5 w-3.5 text-slate-600" />
+            <span>Bulk Options</span>
           </button>
 
           <button
@@ -280,6 +351,18 @@ export const RecipientManager: React.FC = () => {
         </div>
       </div>
 
+      {cleanMessage && (
+        <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2 flex items-center justify-between text-xs text-emerald-800 font-medium">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+            <span>{cleanMessage}</span>
+          </div>
+          <button onClick={() => setCleanMessage(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-4">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Spreadsheet Grid Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse text-left text-xs font-sans">
@@ -298,12 +381,19 @@ export const RecipientManager: React.FC = () => {
                   email: 'Email',
                   registration_id: 'Roll / Reg No'
                 };
-                const displayTitle = labelMap[col] || col.replace(/_/g, ' ');
+                const displayTitle = labelMap[col] || cleanCorruptedS(col.replace(/_/g, ' '));
                 return (
                   <th key={col} className="px-4 py-2.5 border-r border-slate-200 min-w-[180px]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-700">{displayTitle}</span>
-                      <span className="font-mono text-[9px] text-brand-600 bg-brand-50 px-1 py-0.5 rounded lowercase">{`{{${col}}}`}</span>
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="font-bold text-slate-700">{displayTitle}</span>
+                        {col === 'recipient_name' && (
+                          <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">
+                            Uniform Font & Size
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-mono text-[9px] text-brand-600 bg-brand-50 px-1 py-0.5 rounded lowercase flex-shrink-0">{`{{${col}}}`}</span>
                     </div>
                   </th>
                 );
@@ -343,13 +433,14 @@ export const RecipientManager: React.FC = () => {
                     if (!cellVal && col === 'dob') cellVal = rec.data?.['date_of_birth'] ?? rec.data?.['birth_date'] ?? '';
                     if (!cellVal && col === 'department') cellVal = rec.data?.['dept'] ?? rec.data?.['branch'] ?? '';
                     if (!cellVal && col === 'recipient_name') cellVal = rec.data?.['full_name'] ?? rec.data?.['name'] ?? rec.data?.['student_name'] ?? '';
+                    const displayVal = cleanCorruptedS(cellVal);
                     return (
                       <td key={col} className="p-0 border-r border-slate-200 min-w-[180px]">
                         <input
                           type="text"
-                          value={cellVal}
-                          onChange={(e) => updateRecipientCell(rec.id, col, e.target.value)}
-                          className="w-full h-full px-3 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-brand-500 text-xs text-slate-800"
+                          value={displayVal}
+                          onChange={(e) => updateRecipientCell(rec.id, col, cleanCorruptedS(e.target.value))}
+                          className="w-full h-full px-4 py-2 bg-transparent text-slate-800 outline-none focus:bg-white focus:ring-1 focus:ring-brand-500 font-sans text-xs"
                         />
                       </td>
                     );

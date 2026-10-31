@@ -1,0 +1,51 @@
+Student Name,Department,Date of Birth,Event Name,Institution,Registration ID,Email
+Aarav Kumar,Artificial Intelligence and Machine Learning (AI & ML),2000-01-01,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Nehru Institute of Technology,CERT-2026-0001,aarav.1@example.com
+Ananya Reddy,Computer Science and Engineering (CSE),2001-02-02,NATIONAL HACKATHON & INNOVATION CONCLAVE,National Institute of Advanced Sciences,CERT-2026-0002,ananya.2@example.com
+Aditya Sharma,Data Science & Analytics,2002-03-03,ANNUAL QUANTUM COMPUTING WORKSHOP,Vanexa Tech Hub Academy,CERT-2026-0003,aditya.3@example.com
+Bhavna Verma,Electronics and Communication Engineering (ECE),2003-04-04,GLOBAL CYBERSECURITY SYMPOSIUM,Indian Institute of Technology,CERT-2026-0004,bhavna.4@example.com
+Chirag Patel,Information Technology (IT),2004-05-05,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,International Institute of Information Technology,CERT-2026-0005,chirag.5@example.com
+Deepika Iyer,Mechanical Engineering,2005-06-06,NATIONAL HACKATHON & INNOVATION CONCLAVE,Nehru Institute of Technology,CERT-2026-0006,deepika.6@example.com
+Eshwar Nair,Civil Engineering,2000-07-07,ANNUAL QUANTUM COMPUTING WORKSHOP,National Institute of Advanced Sciences,CERT-2026-0007,eshwar.7@example.com
+Farhan Khan,Robotics and Automation,2001-08-08,GLOBAL CYBERSECURITY SYMPOSIUM,Vanexa Tech Hub Academy,CERT-2026-0008,farhan.8@example.com
+Gaurav Chatterjee,Biomedical Engineering,2002-09-09,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Indian Institute of Technology,CERT-2026-0009,gaurav.9@example.com
+Harini Banerjee,Artificial Intelligence and Machine Learning (AI & ML),2003-10-10,NATIONAL HACKATHON & INNOVATION CONCLAVE,International Institute of Information Technology,CERT-2026-0010,harini.10@example.com
+Irfan Sengupta,Computer Science and Engineering (CSE),2004-11-11,ANNUAL QUANTUM COMPUTING WORKSHOP,Nehru Institute of Technology,CERT-2026-0011,irfan.11@example.com
+Jacqueline Pillai,Data Science & Analytics,2005-12-12,GLOBAL CYBERSECURITY SYMPOSIUM,National Institute of Advanced Sciences,CERT-2026-0012,jacqueline.12@example.com
+Karthik Deshmukh,Electronics and Communication Engineering (ECE),2000-01-13,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Vanexa Tech Hub Academy,CERT-2026-0013,karthik.13@example.com
+Lakshmi Kulkarni,Information Technology (IT),2001-02-14,NATIONAL HACKATHON & INNOVATION CONCLAVE,Indian Institute of Technology,CERT-2026-0014,lakshmi.14@example.com
+Manish Mehta,Mechanical Engineering,2002-03-15,ANNUAL QUANTUM COMPUTING WORKSHOP,International Institute of Information Technology,CERT-2026-0015,manish.15@example.com
+Naveen Bhatt,Civil Engineering,2003-04-16,GLOBAL CYBERSECURITY SYMPOSIUM,Nehru Institute of Technology,CERT-2026-0016,naveen.16@example.com
+Oviya Chauhan,Robotics and Automation,2004-05-17,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,National Institute of Advanced Sciences,CERT-2026-0017,oviya.17@example.com
+Praveen Joshi,Biomedical Engineering,2005-06-18,NATIONAL HACKATHON & INNOVATION CONCLAVE,Vanexa Tech Hub Academy,CERT-2026-0018,praveen.18@example.com
+Quentin Gowda,Artificial Intelligence and Machine Learning (AI & ML),2000-07-19,ANNUAL QUANTUM COMPUTING WORKSHOP,Indian Institute of Technology,CERT-2026-0019,quentin.19@example.com
+Rohan Naidu,Computer Science and Engineering (CSE),2001-08-20,GLOBAL CYBERSECURITY SYMPOSIUM,International Institute of Information Technology,CERT-2026-0020,rohan.20@example.com
+Sneha Menon,Data Science & Analytics,2002-09-21,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Nehru Institute of Technology,CERT-2026-0021,sneha.21@example.com
+Tanvi Montgomery-Cunningham IV,Electronics and Communication Engineering (ECE),2003-10-22,NATIONAL HACKATHON & INNOVATION CONCLAVE,National Institute of Advanced Sciences,CERT-2026-0022,tanvi.22@example.com
+Umesh Vandenberghe-Smyth,Information Technology (IT),2004-11-23,ANNUAL QUANTUM COMPUTING WORKSHOP,Vanexa Tech Hub Academy,CERT-2026-0023,umesh.23@example.com
+Vivin Wellington-Harcourt III,Mechanical Engineering,2005-12-24,GLOBAL CYBERSECURITY SYMPOSIUM,Indian Institute of Technology,CERT-2026-0024,vivin.24@example.com
+Waseem Kumar,Civil Engineering,2000-01-25,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,International Institute of Information Technology,CERT-2026-0025,waseem.25@example.com
+Xavier Reddy,Robotics and Automation,2001-02-26,NATIONAL HACKATHON & INNOVATION CONCLAVE,Nehru Institute of Technology,CERT-2026-0026,xavier.26@example.com
+Yamini Sharma,Biomedical Engineering,2002-03-27,ANNUAL QUANTUM COMPUTING WORKSHOP,National Institute of Advanced Sciences,CERT-2026-0027,yamini.27@example.com
+Zeeshan Verma,Artificial Intelligence and Machine Learning (AI & ML),2003-04-28,GLOBAL CYBERSECURITY SYMPOSIUM,Vanexa Tech Hub Academy,CERT-2026-0028,zeeshan.28@example.com
+Alexander Patel,Computer Science and Engineering (CSE),2004-05-01,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Indian Institute of Technology,CERT-2026-0029,alexander.29@example.com
+Bartholomew Iyer,Data Science & Analytics,2005-06-02,NATIONAL HACKATHON & INNOVATION CONCLAVE,International Institute of Information Technology,CERT-2026-0030,bartholomew.30@example.com
+Aarav Nair,Electronics and Communication Engineering (ECE),2000-07-03,ANNUAL QUANTUM COMPUTING WORKSHOP,Nehru Institute of Technology,CERT-2026-0031,aarav.31@example.com
+Ananya Khan,Information Technology (IT),2001-08-04,GLOBAL CYBERSECURITY SYMPOSIUM,National Institute of Advanced Sciences,CERT-2026-0032,ananya.32@example.com
+Aditya Chatterjee,Mechanical Engineering,2002-09-05,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Vanexa Tech Hub Academy,CERT-2026-0033,aditya.33@example.com
+Bhavna Banerjee,Civil Engineering,2003-10-06,NATIONAL HACKATHON & INNOVATION CONCLAVE,Indian Institute of Technology,CERT-2026-0034,bhavna.34@example.com
+Chirag Sengupta,Robotics and Automation,2004-11-07,ANNUAL QUANTUM COMPUTING WORKSHOP,International Institute of Information Technology,CERT-2026-0035,chirag.35@example.com
+Deepika Pillai,Biomedical Engineering,2005-12-08,GLOBAL CYBERSECURITY SYMPOSIUM,Nehru Institute of Technology,CERT-2026-0036,deepika.36@example.com
+Eshwar Deshmukh,Artificial Intelligence and Machine Learning (AI & ML),2000-01-09,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,National Institute of Advanced Sciences,CERT-2026-0037,eshwar.37@example.com
+Farhan Kulkarni,Computer Science and Engineering (CSE),2001-02-10,NATIONAL HACKATHON & INNOVATION CONCLAVE,Vanexa Tech Hub Academy,CERT-2026-0038,farhan.38@example.com
+Gaurav Mehta,Data Science & Analytics,2002-03-11,ANNUAL QUANTUM COMPUTING WORKSHOP,Indian Institute of Technology,CERT-2026-0039,gaurav.39@example.com
+Harini Bhatt,Electronics and Communication Engineering (ECE),2003-04-12,GLOBAL CYBERSECURITY SYMPOSIUM,International Institute of Information Technology,CERT-2026-0040,harini.40@example.com
+Irfan Chauhan,Information Technology (IT),2004-05-13,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Nehru Institute of Technology,CERT-2026-0041,irfan.41@example.com
+Jacqueline Joshi,Mechanical Engineering,2005-06-14,NATIONAL HACKATHON & INNOVATION CONCLAVE,National Institute of Advanced Sciences,CERT-2026-0042,jacqueline.42@example.com
+Karthik Gowda,Civil Engineering,2000-07-15,ANNUAL QUANTUM COMPUTING WORKSHOP,Vanexa Tech Hub Academy,CERT-2026-0043,karthik.43@example.com
+Lakshmi Naidu,Robotics and Automation,2001-08-16,GLOBAL CYBERSECURITY SYMPOSIUM,Indian Institute of Technology,CERT-2026-0044,lakshmi.44@example.com
+Manish Menon,Biomedical Engineering,2002-09-17,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,International Institute of Information Technology,CERT-2026-0045,manish.45@example.com
+Naveen Montgomery-Cunningham IV,Artificial Intelligence and Machine Learning (AI & ML),2003-10-18,NATIONAL HACKATHON & INNOVATION CONCLAVE,Nehru Institute of Technology,CERT-2026-0046,naveen.46@example.com
+Oviya Vandenberghe-Smyth,Computer Science and Engineering (CSE),2004-11-19,ANNUAL QUANTUM COMPUTING WORKSHOP,National Institute of Advanced Sciences,CERT-2026-0047,oviya.47@example.com
+Praveen Wellington-Harcourt III,Data Science & Analytics,2005-12-20,GLOBAL CYBERSECURITY SYMPOSIUM,Vanexa Tech Hub Academy,CERT-2026-0048,praveen.48@example.com
+Quentin Kumar,Electronics and Communication Engineering (ECE),2000-01-21,STARTUP & ENTREPRENEURSHIP SUMMIT 2026,Indian Institute of Technology,CERT-2026-0049,quentin.49@example.com
+Rohan Reddy,Information Technology (IT),2001-02-22,NATIONAL HACKATHON & INNOVATION CONCLAVE,International Institute of Information Technology,CERT-2026-0050,rohan.50@example.com

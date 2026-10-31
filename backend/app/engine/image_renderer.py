@@ -7,12 +7,43 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 from app.config import settings
 from app.engine.coordinates import CoordinateTransformer, pt_to_px
 from app.engine.qr_generator import generate_qr_image
+from app.services.recipient_service import clean_corrupted_s
 
 def decode_asset(asset_url: Optional[str]) -> Optional[Image.Image]:
-    """Decode base64 data URL or load from storage path."""
+    """Decode base64 data URL, SVG vector, or load from storage path."""
     if not asset_url:
         return None
     try:
+        # Check if vector SVG
+        if "image/svg+xml" in asset_url or asset_url.endswith(".svg") or (isinstance(asset_url, str) and "<svg" in asset_url[:120]):
+            try:
+                from svglib.svglib import svg2rlg
+                from reportlab.graphics import renderPM
+                drawing = None
+                if asset_url.startswith("data:image/svg+xml"):
+                    if ";base64," in asset_url:
+                        header, encoded = asset_url.split(";base64,", 1)
+                        svg_bytes = base64.b64decode(encoded)
+                        drawing = svg2rlg(io.BytesIO(svg_bytes))
+                    else:
+                        header, raw_svg = asset_url.split(",", 1)
+                        import urllib.parse
+                        drawing = svg2rlg(io.StringIO(urllib.parse.unquote(raw_svg)))
+                elif asset_url.strip().startswith("<svg"):
+                    drawing = svg2rlg(io.StringIO(asset_url.strip()))
+                elif os.path.isfile(asset_url):
+                    drawing = svg2rlg(asset_url)
+                elif asset_url.startswith("/storage/"):
+                    relative = asset_url.replace("/storage/", "")
+                    local_path = settings.STORAGE_DIR / relative
+                    if local_path.exists():
+                        drawing = svg2rlg(str(local_path))
+                if drawing:
+                    pil_img = renderPM.drawToPIL(drawing)
+                    return pil_img.convert("RGBA")
+            except Exception as e_svg:
+                print(f"SVG to PIL rendering fallback: {e_svg}")
+
         if asset_url.startswith("data:image"):
             # Format: data:image/png;base64,...
             header, encoded = asset_url.split(",", 1)
@@ -83,9 +114,14 @@ def resolve_text_variables(template_str: str, recipient_data: Dict[str, Any], cr
                     val = merged[cand]
                     break
                     
-        return str(val) if val is not None else match.group(0)
+        return str(val) if val is not None else ""
     
-    return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+    resolved = re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+    # Collapse multiple consecutive spaces so text has no empty gaps
+    resolved = re.sub(r'[ \t]{2,}', ' ', resolved)
+    # Clean dangling space before punctuation (e.g. " ," -> ",")
+    resolved = re.sub(r'\s+([,.:;])', r'\1', resolved)
+    return resolved.strip()
 
 def extract_element_text(el: Dict[str, Any], recipient_data: Dict[str, Any], credential_id: Optional[str] = None) -> str:
     """
@@ -280,6 +316,7 @@ def render_certificate_image(
         
         if el_type in ("dynamic_text", "static_text"):
             text_val = extract_element_text(el, recipient_data, credential_id)
+            text_val = clean_corrupted_s(text_val)
                 
             if el.get("uppercase", False):
                 text_val = text_val.upper()
@@ -292,8 +329,34 @@ def render_certificate_image(
             
             font = get_pil_font(font_family, font_size_px, font_weight, font_style)
             
-            # Auto-fit text if enabled and text overflows bounding box width
-            if el.get("auto_fit_text", True) and text_val:
+            is_name_field = (
+                el_type == "dynamic_text"
+                and (
+                    el.get("binding_key") in ("recipient_name", "name", "student_name", "full_name", "participant_name", "candidate_name")
+                    or "name" in (el.get("binding_key") or "").lower()
+                )
+            ) or el.get("uniform_font_size", False)
+
+            # Auto-wrap words for multiline text to prevent clipping while maintaining uniform font size
+            wrap_w_px = max(w_px, int(total_w_px * 0.82)) if (is_name_field and el.get("text_align", "center") == "center") else w_px
+            if " " in text_val and "\n" not in text_val:
+                raw_words = text_val.split(" ")
+                wrapped_lines = []
+                curr_line = ""
+                for w in raw_words:
+                    test_l = f"{curr_line} {w}".strip() if curr_line else w
+                    t_bbox = draw.textbbox((0, 0), test_l, font=font)
+                    if (t_bbox[2] - t_bbox[0]) <= wrap_w_px or not curr_line:
+                        curr_line = test_l
+                    else:
+                        wrapped_lines.append(curr_line)
+                        curr_line = w
+                if curr_line:
+                    wrapped_lines.append(curr_line)
+                text_val = "\n".join(wrapped_lines)
+
+            # Auto-fit text if enabled and not a name field (name field font family & size are locked uniform across all recipients)
+            if not is_name_field and el.get("auto_fit_text", True) and text_val:
                 curr_size_px = font_size_px
                 bbox = draw.multiline_textbbox((0, 0), text_val, font=font)
                 text_w = bbox[2] - bbox[0]

@@ -1,10 +1,102 @@
 import csv
 import io
+import re
 import datetime
 from typing import List, Dict, Any, Tuple
 import openpyxl
 from sqlalchemy.orm import Session
 from app.models import Recipient, FormField, Project
+
+def clean_corrupted_s(text: str) -> str:
+    """
+    Clean corrupted letter 's' substitutions where Cyrillic 'з'/'З' or digit '3'
+    was entered in place of 's'/'S' (due to broken keyboard, OCR, or leetspeak).
+    Carefully preserves valid numbers like dates, phone numbers, ordinals, and years.
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    res = text
+    # 0. Check if this contains an email address
+    is_email = '@' in res
+
+    # 1. Protect valid ordinals like 3rd, 3RD, 3th, 3nd, 3st
+    res = re.sub(r'\b3(rd|RD|th|TH|nd|ND|st|ST)\b', r'__ORD_3\1__', res)
+
+    # 2. Cyrillic Ze (U+0437 lowercase and U+0417 uppercase)
+    # If at start of a capitalized word and not email, convert to 'S'
+    if not is_email:
+        res = re.sub(r'\b[зЗ]([A-Za-z]*)', lambda m: 'S' + m.group(1), res)
+    res = res.replace('\u0437', 's').replace('\u0417', 'S')
+    res = res.replace('з', 's').replace('З', 'S')
+
+    # 3. Handle multiple 3s in uppercase/lowercase words (e.g. ADDRE33 -> ADDRESS, addre33 -> address)
+    def replace_consecutive_3(m):
+        before = m.group(1)
+        threes = m.group(2)
+        rep = 'S' if before.isupper() else 's'
+        return before + (rep * len(threes))
+    res = re.sub(r'([A-Za-z])(3+)', replace_consecutive_3, res)
+
+    # 4. Handle 3 between letters (e.g. TIME3TAMP -> TIMESTAMP, IN3TITUTION -> INSTITUTION, mc3ankar -> mcsankar)
+    def replace_mid_3(m):
+        before = m.group(1)
+        after = m.group(2)
+        rep = 'S' if (before.isupper() and after.isupper()) else 's'
+        return f"{before}{rep}{after}"
+    prev = None
+    while prev != res:
+        prev = res
+        res = re.sub(r'([A-Za-z])3([A-Za-z])', replace_mid_3, res)
+
+    # 5. Handle 3 followed by letters at start of word or email (e.g. 3anthosh -> Santhosh / santhosh, 3ukanth -> Sukanth)
+    def replace_start_3(m):
+        word = m.group(0)
+        if word.isdigit():
+            return word
+        if word.startswith('3'):
+            first_rep = 's' if is_email else 'S'
+            word = first_rep + word[1:]
+        return word
+    res = re.sub(r'\b3[A-Za-z]+', replace_start_3, res)
+
+    # 6. Normalize common corrupted student names like 'SREE sukanth' -> 'SREE Sukanth'
+    if 'SREE' in res and 'sukanth' in res:
+        res = res.replace('SREE sukanth', 'SREE Sukanth')
+    elif 'sree' in res.lower() and 'sukanth' in res.lower():
+        res = re.sub(r'\bsree\s+sukanth\b', 'Sree Sukanth', res, flags=re.IGNORECASE)
+
+    # 7. Restore protected ordinals
+    res = re.sub(r'__ORD_3([A-Za-z]+)__', r'3\1', res)
+
+    return res
+
+    return res
+
+def normalize_spaces(text: str) -> str:
+    """
+    Strip leading/trailing whitespace and collapse internal consecutive spaces
+    or whitespace gaps to a single space.
+    """
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        text = str(text)
+    return re.sub(r'[ \t\r\n]+', ' ', text).strip()
+
+def clean_record_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Clean all keys and string values in a recipient record dictionary."""
+    if not isinstance(d, dict):
+        return d
+    cleaned = {}
+    for k, v in d.items():
+        k_clean = normalize_spaces(clean_corrupted_s(str(k)))
+        if isinstance(v, str):
+            v_clean = normalize_spaces(clean_corrupted_s(v))
+        else:
+            v_clean = v
+        cleaned[k_clean] = v_clean
+    return cleaned
 
 SYNONYM_MAP = {
     # Recipient & Student name synonyms
@@ -168,7 +260,7 @@ def parse_csv_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, A
     if last_col == -1:
         return [], []
         
-    headers = [raw_headers[i].strip() if i < len(raw_headers) and raw_headers[i].strip() else f"Column_{i+1}" for i in range(last_col + 1)]
+    headers = [normalize_spaces(clean_corrupted_s(raw_headers[i])) if i < len(raw_headers) and raw_headers[i].strip() else f"Column_{i+1}" for i in range(last_col + 1)]
     data_rows = []
     
     for row_vals in rows[1:]:
@@ -177,7 +269,7 @@ def parse_csv_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, A
         row_dict = {}
         for idx, h in enumerate(headers):
             val = row_vals[idx].strip() if idx < len(row_vals) else ""
-            row_dict[h] = val
+            row_dict[h] = normalize_spaces(clean_corrupted_s(val))
         data_rows.append(row_dict)
         
     return headers, data_rows
@@ -198,7 +290,7 @@ def parse_xlsx_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, 
                     last_col = i
             if last_col == -1:
                 return [], []
-            headers = [str(row[i]).strip() if i < len(row) and row[i] is not None and str(row[i]).strip() else f"Column_{i+1}" for i in range(last_col + 1)]
+            headers = [normalize_spaces(clean_corrupted_s(str(row[i]))) if i < len(row) and row[i] is not None and str(row[i]).strip() else f"Column_{i+1}" for i in range(last_col + 1)]
         else:
             if not any(cell is not None and str(cell).strip() != "" for cell in row):
                 continue
@@ -212,7 +304,7 @@ def parse_xlsx_content(content_bytes: bytes) -> Tuple[List[str], List[Dict[str, 
                 elif isinstance(cell_val, float) and cell_val.is_integer():
                     row_dict[h] = str(int(cell_val))
                 else:
-                    row_dict[h] = str(cell_val).strip()
+                    row_dict[h] = normalize_spaces(clean_corrupted_s(str(cell_val)))
             data_rows.append(row_dict)
             
     return headers, data_rows

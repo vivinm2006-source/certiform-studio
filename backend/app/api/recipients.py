@@ -5,7 +5,8 @@ from app.database import get_db
 from app.models import Recipient, Project, Form, FormField
 from app.schemas import RecipientCreate, RecipientUpdate, RecipientOut, BulkImportRequest
 from app.services.recipient_service import (
-    suggest_column_mapping, parse_csv_content, parse_xlsx_content, generate_empty_excel_template
+    suggest_column_mapping, parse_csv_content, parse_xlsx_content, generate_empty_excel_template,
+    clean_corrupted_s, clean_record_dict
 )
 import csv
 import io
@@ -49,20 +50,31 @@ def list_recipients(
     start = (page - 1) * page_size
     paged = all_recipients[start : start + page_size]
     
+    cleaned_items = []
+    has_dirty = False
+    for r in paged:
+        c_data = clean_record_dict(r.data or {})
+        if c_data != r.data:
+            r.data = c_data
+            has_dirty = True
+        cleaned_items.append({
+            "id": r.id,
+            "project_id": r.project_id,
+            "data": c_data,
+            "source": r.source,
+            "status": r.status,
+            "validation_errors": r.validation_errors,
+            "created_at": r.created_at,
+            "updated_at": r.updated_at
+        })
+    if has_dirty:
+        try:
+            db.commit()
+        except Exception:
+            pass
+
     return {
-        "items": [
-            {
-                "id": r.id,
-                "project_id": r.project_id,
-                "data": r.data,
-                "source": r.source,
-                "status": r.status,
-                "validation_errors": r.validation_errors,
-                "created_at": r.created_at,
-                "updated_at": r.updated_at
-            }
-            for r in paged
-        ],
+        "items": cleaned_items,
         "total": total_count,
         "page": page,
         "page_size": page_size,
@@ -71,9 +83,10 @@ def list_recipients(
 
 @router.post("/projects/{project_id}/recipients", response_model=RecipientOut)
 def create_recipient(project_id: str, payload: RecipientCreate, db: Session = Depends(get_db)):
+    cleaned_data = clean_record_dict(payload.data)
     rec = Recipient(
         project_id=project_id,
-        data=payload.data,
+        data=cleaned_data,
         source=payload.source,
         status=payload.status,
         validation_errors=payload.validation_errors
@@ -92,7 +105,7 @@ def update_recipient(id: str, payload: RecipientUpdate, db: Session = Depends(ge
     if payload.data is not None:
         merged = dict(rec.data or {})
         merged.update(payload.data)
-        rec.data = merged
+        rec.data = clean_record_dict(merged)
         
     if payload.status is not None:
         rec.status = payload.status
@@ -255,10 +268,36 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
                     break
         if detected_dob:
             mapped_data["dob"] = detected_dob
+            
+        # 6. Fill missing template gaps without excess space
+        form = db.query(Form).filter(Form.project_id == actual_project_id).first()
+        default_event_name = "Annual Academic & Innovation Summit"
+        default_event_date = "October 27, 2026"
+        default_institution = "Authorized Institution of Technology"
+        default_dept = "Department of Technology & Engineering"
+        if form and form.fields:
+            for f in form.fields:
+                if f.binding_key in ("event_name", "topic") and f.default_value:
+                    default_event_name = f.default_value
+                elif f.binding_key in ("event_date", "date") and f.default_value:
+                    default_event_date = f.default_value
+                elif f.binding_key in ("institution", "venue", "college") and f.default_value:
+                    default_institution = f.default_value
+                elif f.binding_key in ("department", "dept") and f.default_value:
+                    default_dept = f.default_value
+
+        if not mapped_data.get("event_name"):
+            mapped_data["event_name"] = default_event_name
+        if not mapped_data.get("event_date"):
+            mapped_data["event_date"] = default_event_date
+        if not mapped_data.get("institution"):
+            mapped_data["institution"] = default_institution
+        if not mapped_data.get("department"):
+            mapped_data["department"] = default_dept
                 
         rec = Recipient(
             project_id=actual_project_id,
-            data=mapped_data,
+            data=clean_record_dict(mapped_data),
             source="import",
             status="valid"
         )
@@ -270,6 +309,84 @@ def execute_import(project_id: str, payload: BulkImportRequest, db: Session = De
         "success": True,
         "imported_count": len(created_recipients)
     }
+
+@router.post("/projects/{project_id}/recipients/fill-gaps")
+def fill_recipient_gaps(project_id: str, db: Session = Depends(get_db)):
+    """
+    Fill missing gap fields (event_name, event_date, institution, department)
+    and normalize all spaces so certificates have zero empty sentence gaps.
+    """
+    recipients = db.query(Recipient).filter(Recipient.project_id == project_id).all()
+    if not recipients:
+        recipients = db.query(Recipient).all()
+        
+    form = db.query(Form).filter(Form.project_id == project_id).first()
+    default_event_name = "Annual Academic & Innovation Summit"
+    default_event_date = "October 27, 2026"
+    default_institution = "Authorized Institution of Technology"
+    default_dept = "Department of Technology & Engineering"
+    
+    if form and form.fields:
+        for f in form.fields:
+            if f.binding_key in ("event_name", "topic") and f.default_value:
+                default_event_name = f.default_value
+            elif f.binding_key in ("event_date", "date") and f.default_value:
+                default_event_date = f.default_value
+            elif f.binding_key in ("institution", "venue", "college") and f.default_value:
+                default_institution = f.default_value
+            elif f.binding_key in ("department", "dept") and f.default_value:
+                default_dept = f.default_value
+                
+    filled_count = 0
+    for rec in recipients:
+        d = dict(rec.data or {})
+        changed = False
+        if not d.get("event_name") or not str(d.get("event_name")).strip():
+            d["event_name"] = default_event_name
+            changed = True
+        if not d.get("event_date") or not str(d.get("event_date")).strip():
+            d["event_date"] = default_event_date
+            changed = True
+        if not d.get("institution") or not str(d.get("institution")).strip():
+            d["institution"] = default_institution
+            changed = True
+        if not d.get("department") or not str(d.get("department")).strip():
+            d["department"] = default_dept
+            changed = True
+            
+        c_data = clean_record_dict(d)
+        if c_data != rec.data or changed:
+            rec.data = c_data
+            filled_count += 1
+            
+    if filled_count > 0:
+        db.commit()
+        
+    return {
+        "success": True,
+        "filled_count": filled_count,
+        "total_recipients": len(recipients)
+    }
+
+@router.post("/projects/{project_id}/recipients/sanitize-s")
+def sanitize_project_recipients_s(project_id: str, db: Session = Depends(get_db)):
+    """Clean corrupted letter 's' substitutions across all project recipients."""
+    recipients = db.query(Recipient).filter(Recipient.project_id == project_id).all()
+    if not recipients:
+        recipients = db.query(Recipient).all()
+        
+    cleaned_count = 0
+    for rec in recipients:
+        old_data = dict(rec.data or {})
+        cleaned_data = clean_record_dict(old_data)
+        if cleaned_data != old_data:
+            rec.data = cleaned_data
+            cleaned_count += 1
+            
+    if cleaned_count > 0:
+        db.commit()
+        
+    return {"success": True, "cleaned_count": cleaned_count, "total_recipients": len(recipients)}
 
 @router.get("/projects/{project_id}/recipients/template")
 def download_excel_template(project_id: str, db: Session = Depends(get_db)):

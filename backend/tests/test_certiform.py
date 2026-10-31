@@ -230,3 +230,89 @@ def test_preflight_overflow_and_margin_check():
     assert report["passed"] is False
     overflow_issues = [i for i in report["issues"] if i["code"] == "text_overflow"]
     assert len(overflow_issues) > 0
+
+# --- Test K: 5 New Template Presets ---
+def test_new_template_presets(client, db_session):
+    proj = create_default_project(db_session, title="Template Presets Project")
+    templates = client.get(f"/api/v1/projects/{proj.id}/templates").json()
+    t_id = templates[0]["id"]
+
+    for preset_key in ["luxury_gold", "creative_workshop", "parchment_heritage", "stem_olympiad", "corporate_achievement"]:
+        resp = client.post(f"/api/v1/templates/{t_id}/load-preset", json={"preset": preset_key})
+        assert resp.status_code == 200
+        tpl = resp.json()
+        assert len(tpl["elements"]) >= 10
+        # Verify signatory and name elements exist
+        has_name = any(el.get("binding_key") == "recipient_name" for el in tpl["elements"])
+        assert has_name, f"Preset {preset_key} missing recipient_name element"
+
+# --- Test L: Vector SVG Asset Upload & PDF Integration ---
+def test_svg_vector_upload_and_pdf(client, db_session):
+    proj = create_default_project(db_session, title="SVG Vector Test Project")
+    templates = client.get(f"/api/v1/projects/{proj.id}/templates").json()
+    t_id = templates[0]["id"]
+
+    sample_svg = b"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+      <circle cx="50" cy="50" r="45" fill="#FEF3C7" stroke="#D97706" stroke-width="3"/>
+      <polygon points="50,20 58,38 78,40 62,54 66,74 50,62 34,74 38,54 22,40 42,38" fill="#F59E0B"/>
+      <text x="50" y="88" font-size="8" font-weight="bold" fill="#B45309" text-anchor="middle">HONOR</text>
+    </svg>"""
+
+    files = {"file": ("honor_seal.svg", sample_svg, "image/svg+xml")}
+    res = client.post(f"/api/v1/templates/{t_id}/upload-element-asset", files=files)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert "image/svg+xml" in data["asset_url"]
+
+    # Test PDF generation with SVG element
+    tpl_dict = {"width_pt": 841.89, "height_pt": 595.28}
+    elements = [
+        {
+            "id": "svg-1",
+            "element_type": "image",
+            "asset_url": data["asset_url"],
+            "x": 0.45, "y": 0.7, "width": 0.1, "height": 0.14,
+            "layer_order": 1, "is_visible": True
+        }
+    ]
+    pdf_b = render_certificate_pdf(tpl_dict, elements, {"recipient_name": "Test Candidate"})
+    assert pdf_b.startswith(b"%PDF")
+    assert len(pdf_b) > 1000
+
+# --- Test M: Excel Space Normalization & Gap Filling ---
+def test_excel_gap_filling_and_spaces(client, db_session):
+    proj = create_default_project(db_session, title="Gap Filling Project")
+
+    # Upload row with extra spaces and missing event fields
+    raw_rows = [
+        {"Student Name": "  Santhosh   Kumar  ", "Department": "  Artificial   Intelligence  "}
+    ]
+    mapping = {"Student Name": "recipient_name", "Department": "department"}
+
+    import_resp = client.post(f"/api/v1/projects/{proj.id}/recipients/import", json={
+        "rows": raw_rows,
+        "column_mapping": mapping,
+        "clear_existing": True
+    })
+    assert import_resp.status_code == 200
+
+    # Trigger fill-gaps endpoint
+    fill_resp = client.post(f"/api/v1/projects/{proj.id}/recipients/fill-gaps")
+    assert fill_resp.status_code == 200
+
+    rec_resp = client.get(f"/api/v1/projects/{proj.id}/recipients")
+    rec = rec_resp.json()["items"][0]["data"]
+    assert rec["recipient_name"] == "Santhosh Kumar"
+    assert rec["department"] == "Artificial Intelligence"
+    assert rec.get("event_name") is not None
+    assert rec.get("event_date") is not None
+
+# --- Test N: Direct 1-Click Consolidated Bulk PDF Endpoint ---
+def test_direct_bulk_pdf_export(client, db_session):
+    proj = create_default_project(db_session, title="Direct Bulk PDF Project")
+    resp = client.get(f"/api/v1/projects/{proj.id}/export/bulk-pdf")
+    assert resp.status_code == 200
+    assert resp.headers.get("content-type") == "application/pdf"
+    assert resp.content.startswith(b"%PDF")
+    assert len(resp.content) > 5000

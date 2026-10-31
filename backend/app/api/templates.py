@@ -364,6 +364,112 @@ def get_preset_template_data(preset_key: str, template_id: str) -> tuple[str, st
             CanvasElement(template_id=template_id, element_type="qr_code", x=0.82, y=0.74, width=0.09, height=0.12, layer_order=1),
             CanvasElement(template_id=template_id, element_type="dynamic_text", content="ID: {{certificate_id}}", binding_key="certificate_id", font_family="Montserrat", font_size=7.5, color="#64748B", text_align="center", x=0.78, y=0.87, width=0.17, height=0.04, layer_order=2)
         ]
+    elif preset_key == "luxury_gold":
+        name = "Royal Gold Laureate & University Honors"
+        bg_color = "#0B1528"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.03, y=0.04, width=0.94, height=0.92, border_color="#D4AF37", border_width=3.0, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.042, y=0.055, width=0.916, height=0.89, border_color="#AA771C", border_width=1.0, fill_color=None, is_locked=True, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="SOVEREIGN ACADEMY OF ADVANCED SCHOLASTIC EXCELLENCE", font_family="Montserrat", font_size=10.5, font_weight="bold", color="#D4AF37", letter_spacing=3.0, uppercase=True, text_align="center", x=0.1, y=0.10, width=0.8, height=0.04, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.32, y=0.15, width=0.36, height=0.005, border_color="#D4AF37", border_width=1.5, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="LAUREATE OF DISTINCTION", font_family="Cinzel", font_size=32, font_weight="bold", color="#F6E05E", letter_spacing=3.0, uppercase=True, text_align="center", x=0.05, y=0.17, width=0.9, height=0.08, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="static_text", content="WITH HIGHEST HONORS AND PRAISE CONFERRED UPON", font_family="Montserrat", font_size=9.5, font_weight="normal", color="#E2E8F0", letter_spacing=3.0, uppercase=True, text_align="center", x=0.15, y=0.27, width=0.7, height=0.035, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Ananya Kumar", binding_key="recipient_name", font_family="Playfair Display", font_size=38, font_weight="bold", color="#FFFFFF", text_align="center", auto_fit_text=True, x=0.08, y=0.315, width=0.84, height=0.11, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.28, y=0.435, width=0.44, height=0.006, border_color="#D4AF37", border_width=1.5, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="in recognition of peerless intellectual mastery, scholarly leadership, and distinguished thesis defense\nin {{event_name}} on {{event_date}}.", font_family="Merriweather", font_size=11.5, color="#CBD5E1", text_align="center", line_height=1.6, x=0.1, y=0.465, width=0.8, height=0.09, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="static_text", content="The Chancellor", font_family="Great Vibes", font_size=28, color="#F6E05E", text_align="center", x=0.12, y=0.64, width=0.24, height=0.07, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.12, y=0.725, width=0.24, height=0.005, border_color="#D4AF37", border_width=1.0, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="static_text", content="The Rt. Hon. Chancellor\nBoard of Regents", font_family="Montserrat", font_size=9, color="#E2E8F0", text_align="center", x=0.12, y=0.735, width=0.24, height=0.07, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.64, width=0.10, height=0.13, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="SOVEREIGN SEAL: {{certificate_id}}\nOfficial National Academic Archives", font_family="Montserrat", font_size=7.5, color="#D4AF37", text_align="center", x=0.30, y=0.785, width=0.40, height=0.05, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Dean of Faculty", font_family="Great Vibes", font_size=28, color="#F6E05E", text_align="center", x=0.64, y=0.64, width=0.24, height=0.07, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#D4AF37", border_width=1.0, layer_order=15),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Prof. Dean of Faculty\nSenate Chairman", font_family="Montserrat", font_size=9, color="#E2E8F0", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=16)
+        ]
+    elif preset_key == "creative_workshop":
+        name = "Modern Creative Workshop & Masterclass"
+        bg_color = "#FFFDF9"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.035, y=0.045, width=0.93, height=0.91, border_color="#0D9488", border_width=2.5, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.035, y=0.06, width=0.93, height=0.006, border_color="#F97316", border_width=3.0, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="DESIGN THINKING & PRODUCT INNOVATION LABS", font_family="Montserrat", font_size=10, font_weight="bold", color="#0D9488", letter_spacing=2.5, uppercase=True, text_align="center", x=0.1, y=0.10, width=0.8, height=0.04, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="MASTERCLASS CERTIFICATION", font_family="Montserrat", font_size=30, font_weight="bold", color="#1E293B", letter_spacing=2.5, uppercase=True, text_align="center", x=0.05, y=0.165, width=0.9, height=0.08, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="THIS ACCREDITATION IS AWARDED TO", font_family="Montserrat", font_size=9.5, font_weight="normal", color="#64748B", letter_spacing=3.0, uppercase=True, text_align="center", x=0.15, y=0.265, width=0.7, height=0.035, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Ananya Kumar", binding_key="recipient_name", font_family="Montserrat", font_size=38, font_weight="bold", color="#0F766E", text_align="center", auto_fit_text=True, x=0.08, y=0.315, width=0.84, height=0.11, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.32, y=0.435, width=0.36, height=0.005, border_color="#F97316", border_width=1.5, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="for active participation, creative ideation, and successful prototype delivery\nduring the {{event_name}} on {{event_date}}.", font_family="Montserrat", font_size=11.5, color="#334155", text_align="center", line_height=1.5, x=0.1, y=0.465, width=0.8, height=0.09, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Marcus Vance", font_family="Great Vibes", font_size=28, color="#0F766E", text_align="center", x=0.12, y=0.64, width=0.24, height=0.07, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.12, y=0.725, width=0.24, height=0.005, border_color="#CBD5E1", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Marcus Vance\nDesign Sprint Facilitator", font_family="Montserrat", font_size=9, color="#64748B", text_align="center", x=0.12, y=0.735, width=0.24, height=0.07, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.64, width=0.10, height=0.13, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="WORKSHOP ID: {{certificate_id}}\nVerify at certiform.example/verify", font_family="Montserrat", font_size=7.5, color="#64748B", text_align="center", x=0.35, y=0.785, width=0.30, height=0.05, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Elena Rostova", font_family="Great Vibes", font_size=28, color="#0F766E", text_align="center", x=0.64, y=0.64, width=0.24, height=0.07, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#CBD5E1", border_width=1.0, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Elena Rostova\nHead of Creative Strategy", font_family="Montserrat", font_size=9, color="#64748B", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=15)
+        ]
+    elif preset_key == "parchment_heritage":
+        name = "Vintage Heritage & Traditional Diploma"
+        bg_color = "#FAF7EE"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.03, y=0.04, width=0.94, height=0.92, border_color="#3E2723", border_width=3.0, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.042, y=0.055, width=0.916, height=0.89, border_color="#8D6E63", border_width=1.2, fill_color=None, is_locked=True, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="UNIVERSITAS TRADITIO ET SCIENTIA - ANNO DOMINI MMXXVI", font_family="Cinzel", font_size=10, font_weight="bold", color="#4E342E", letter_spacing=2.5, uppercase=True, text_align="center", x=0.1, y=0.10, width=0.8, height=0.04, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="DIPLOMA OF EXCELLENCE", font_family="Cinzel", font_size=32, font_weight="bold", color="#271510", letter_spacing=3.0, uppercase=True, text_align="center", x=0.05, y=0.165, width=0.9, height=0.08, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="EXCELLENTIA ET VIRTUS - CONFERRED ACCORDING TO PROTOCOL UPON", font_family="Montserrat", font_size=9, font_weight="normal", color="#5D4037", letter_spacing=3.0, uppercase=True, text_align="center", x=0.15, y=0.265, width=0.7, height=0.035, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Ananya Kumar", binding_key="recipient_name", font_family="Great Vibes", font_size=42, font_weight="bold", color="#3E2723", text_align="center", auto_fit_text=True, x=0.08, y=0.315, width=0.84, height=0.11, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.28, y=0.435, width=0.44, height=0.005, border_color="#8D6E63", border_width=1.5, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="having demonstrated steadfast devotion to academic scholarship, character, and integrity\nin {{event_name}} on {{event_date}}.", font_family="Merriweather", font_size=11.5, color="#3E2723", text_align="center", line_height=1.6, x=0.1, y=0.465, width=0.8, height=0.09, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="static_text", content="The Provost", font_family="Great Vibes", font_size=28, color="#271510", text_align="center", x=0.12, y=0.64, width=0.24, height=0.07, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.12, y=0.725, width=0.24, height=0.005, border_color="#8D6E63", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="static_text", content="The Provost & Vice-Chancellor\nOffice of Academic Affairs", font_family="Montserrat", font_size=9, color="#5D4037", text_align="center", x=0.12, y=0.735, width=0.24, height=0.07, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.64, width=0.10, height=0.13, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="REGISTRATION ID: {{certificate_id}}\nOfficial University Registrar", font_family="Montserrat", font_size=7.5, color="#5D4037", text_align="center", x=0.35, y=0.785, width=0.30, height=0.05, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Registrar", font_family="Great Vibes", font_size=28, color="#271510", text_align="center", x=0.64, y=0.64, width=0.24, height=0.07, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#8D6E63", border_width=1.0, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Registrar & Secretary\nGoverning Council", font_family="Montserrat", font_size=9, color="#5D4037", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=15)
+        ]
+    elif preset_key == "stem_olympiad":
+        name = "National STEM Olympiad & Scholastic Honors"
+        bg_color = "#F8FAFC"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.03, y=0.04, width=0.94, height=0.92, border_color="#1E3A8A", border_width=3.0, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.03, y=0.055, width=0.94, height=0.006, border_color="#DC2626", border_width=3.0, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="NATIONAL FOUNDATION FOR SCHOLASTIC & MATHEMATICAL OLYMPIADS", font_family="Montserrat", font_size=10, font_weight="bold", color="#1E3A8A", letter_spacing=2.5, uppercase=True, text_align="center", x=0.1, y=0.10, width=0.8, height=0.04, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="OLYMPIAD GOLD DISTINCTION", font_family="Montserrat", font_size=31, font_weight="bold", color="#0F172A", letter_spacing=2.5, uppercase=True, text_align="center", x=0.05, y=0.165, width=0.9, height=0.08, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="TOP PERCENTILE DISTINCTION CONFERRED UPON", font_family="Montserrat", font_size=9.5, font_weight="normal", color="#64748B", letter_spacing=3.0, uppercase=True, text_align="center", x=0.15, y=0.265, width=0.7, height=0.035, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Ananya Kumar", binding_key="recipient_name", font_family="Montserrat", font_size=38, font_weight="bold", color="#1E3A8A", text_align="center", uppercase=True, auto_fit_text=True, x=0.08, y=0.315, width=0.84, height=0.11, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.32, y=0.435, width=0.36, height=0.005, border_color="#DC2626", border_width=1.5, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="for extraordinary analytical reasoning, algorithmic computational mastery, and gold medalist rank\nin the {{event_name}} on {{event_date}}.", font_family="Montserrat", font_size=11.5, color="#334155", text_align="center", line_height=1.5, x=0.1, y=0.465, width=0.8, height=0.09, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Chief Arbiter", font_family="Great Vibes", font_size=28, color="#1E3A8A", text_align="center", x=0.12, y=0.64, width=0.24, height=0.07, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.12, y=0.725, width=0.24, height=0.005, border_color="#CBD5E1", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Dr. Chief Arbiter, FRS\nNational Jury President", font_family="Montserrat", font_size=9, color="#64748B", text_align="center", x=0.12, y=0.735, width=0.24, height=0.07, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.64, width=0.10, height=0.13, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="SCORE REGISTER: {{certificate_id}}\nNational Registry of Olympians", font_family="Montserrat", font_size=7.5, color="#1E3A8A", text_align="center", x=0.30, y=0.785, width=0.40, height=0.05, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Commissioner", font_family="Great Vibes", font_size=28, color="#1E3A8A", text_align="center", x=0.64, y=0.64, width=0.24, height=0.07, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#CBD5E1", border_width=1.0, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Commissioner of Education\nMinistry of Sciences", font_family="Montserrat", font_size=9, color="#64748B", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=15)
+        ]
+    elif preset_key == "corporate_achievement":
+        name = "Corporate Peak Performance & Impact Award"
+        bg_color = "#0F172A"
+        elements = [
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="rectangle", x=0.03, y=0.04, width=0.94, height=0.92, border_color="#38BDF8", border_width=2.5, fill_color=None, is_locked=True, layer_order=0),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.03, y=0.055, width=0.94, height=0.006, border_color="#F59E0B", border_width=3.0, layer_order=1),
+            CanvasElement(template_id=template_id, element_type="static_text", content="GLOBAL ENTERPRISE EXCELLENCE & LEADERSHIP COUNCIL", font_family="Montserrat", font_size=10, font_weight="bold", color="#38BDF8", letter_spacing=3.0, uppercase=True, text_align="center", x=0.1, y=0.10, width=0.8, height=0.04, layer_order=2),
+            CanvasElement(template_id=template_id, element_type="static_text", content="PEAK PERFORMANCE AWARD", font_family="Montserrat", font_size=32, font_weight="bold", color="#FFFFFF", letter_spacing=3.0, uppercase=True, text_align="center", x=0.05, y=0.165, width=0.9, height=0.08, layer_order=3),
+            CanvasElement(template_id=template_id, element_type="static_text", content="PRESENTED IN RECOGNITION OF EXEMPLARY VALOR AND IMPACT TO", font_family="Montserrat", font_size=9, font_weight="normal", color="#94A3B8", letter_spacing=3.0, uppercase=True, text_align="center", x=0.15, y=0.265, width=0.7, height=0.035, layer_order=4),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="Ananya Kumar", binding_key="recipient_name", font_family="Montserrat", font_size=38, font_weight="bold", color="#F59E0B", text_align="center", uppercase=True, auto_fit_text=True, x=0.08, y=0.315, width=0.84, height=0.11, layer_order=5),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.32, y=0.435, width=0.36, height=0.005, border_color="#38BDF8", border_width=1.5, layer_order=6),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="for exceeding all strategic milestones, championing team innovation, and driving stellar outcomes\nat {{event_name}} on {{event_date}}.", font_family="Montserrat", font_size=11.5, color="#E2E8F0", text_align="center", line_height=1.5, x=0.1, y=0.465, width=0.8, height=0.09, layer_order=7),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Chief Executive Officer", font_family="Great Vibes", font_size=28, color="#F59E0B", text_align="center", x=0.12, y=0.64, width=0.24, height=0.07, layer_order=8),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.12, y=0.725, width=0.24, height=0.005, border_color="#475569", border_width=1.0, layer_order=9),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Chief Executive Officer\nEnterprise Operations", font_family="Montserrat", font_size=9, color="#94A3B8", text_align="center", x=0.12, y=0.735, width=0.24, height=0.07, layer_order=10),
+            CanvasElement(template_id=template_id, element_type="qr_code", x=0.45, y=0.64, width=0.10, height=0.13, layer_order=11),
+            CanvasElement(template_id=template_id, element_type="dynamic_text", content="AWARD ID: {{certificate_id}}\nAuthenticated Corporate Ledger", font_family="Montserrat", font_size=7.5, color="#38BDF8", text_align="center", x=0.30, y=0.785, width=0.40, height=0.05, layer_order=12),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Managing Director", font_family="Great Vibes", font_size=28, color="#F59E0B", text_align="center", x=0.64, y=0.64, width=0.24, height=0.07, layer_order=13),
+            CanvasElement(template_id=template_id, element_type="shape", shape_type="line", x=0.64, y=0.725, width=0.24, height=0.005, border_color="#475569", border_width=1.0, layer_order=14),
+            CanvasElement(template_id=template_id, element_type="static_text", content="Managing Director\nExecutive Leadership Council", font_family="Montserrat", font_size=9, color="#94A3B8", text_align="center", x=0.64, y=0.735, width=0.24, height=0.07, layer_order=15)
+        ]
     elif preset_key == "blank":
         name = "Blank Certificate Canvas"
         bg_color = "#FFFFFF"
@@ -772,12 +878,12 @@ def upload_template_background(template_id: str, file: UploadFile = File(...), d
         tpl = proj.templates[0]
         
     ext = file.filename.split(".")[-1].lower() if file.filename else "png"
-    if ext not in ("png", "jpg", "jpeg", "webp"):
-        raise HTTPException(status_code=400, detail="Only PNG, JPG, and WEBP images are supported for backgrounds")
+    if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
+        raise HTTPException(status_code=400, detail="Only PNG, JPG, WEBP, and SVG vector images are supported for backgrounds")
         
     file_bytes = file.file.read()
     b64_content = base64.b64encode(file_bytes).decode("utf-8")
-    mime_type = "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
+    mime_type = "image/svg+xml" if ext == "svg" else "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
     data_url = f"data:{mime_type};base64,{b64_content}"
 
     # Also persist to disk if directory is writable (e.g. local dev)
@@ -795,6 +901,18 @@ def upload_template_background(template_id: str, file: UploadFile = File(...), d
     db.refresh(tpl)
     
     return {"success": True, "background_asset_url": data_url}
+
+@router.post("/templates/{template_id}/upload-element-asset")
+def upload_element_asset(template_id: str, file: UploadFile = File(...)):
+    """Upload vector SVG, PNG, JPG, or WEBP logo/badge/seal asset for placement on canvas."""
+    ext = file.filename.split(".")[-1].lower() if file.filename else "png"
+    if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
+        raise HTTPException(status_code=400, detail="Only SVG, PNG, JPG, and WEBP formats are supported")
+    file_bytes = file.file.read()
+    b64_content = base64.b64encode(file_bytes).decode("utf-8")
+    mime_type = "image/svg+xml" if ext == "svg" else "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
+    data_url = f"data:{mime_type};base64,{b64_content}"
+    return {"success": True, "asset_url": data_url, "format": ext}
 
 @router.post("/templates/{template_id}/load-preset", response_model=CertificateTemplateOut)
 def load_template_preset(template_id: str, payload: Dict[str, str], db: Session = Depends(get_db)):
