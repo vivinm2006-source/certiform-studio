@@ -532,3 +532,58 @@ def export_roster(project_id: str, db: Session = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=roster_{project_id[:8]}.csv"}
     )
+
+@router.post("/projects/{project_id}/email-certificates")
+def email_project_certificates_bulk(
+    project_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Dispatch individual certificate emails with vector PDF attachments and Gemini watermark
+    to each recipient's specific mail ID.
+    """
+    from app.services.email_service import send_bulk_project_certificate_emails
+    p = payload or {}
+    template_id = p.get("template_id")
+    watermark = p.get("watermark", "GEMINI")
+    only_unsent = p.get("only_unsent", False)
+    custom_message = p.get("custom_message")
+
+    result = send_bulk_project_certificate_emails(
+        db=db,
+        project_id=project_id,
+        template_id=template_id,
+        watermark=watermark,
+        only_unsent=only_unsent,
+        custom_message=custom_message
+    )
+    return result
+
+@router.post("/recipients/{recipient_id}/send-email")
+def email_single_recipient_certificate(
+    recipient_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Dispatch an individual certificate email with vector PDF attachment directly
+    to the specific recipient's mail ID.
+    """
+    from app.services.email_service import send_recipient_certificate_email
+    p = payload or {}
+    template_id = p.get("template_id")
+    watermark = p.get("watermark", "GEMINI")
+    custom_message = p.get("custom_message")
+
+    result = send_recipient_certificate_email(
+        db=db,
+        recipient_id=recipient_id,
+        template_id=template_id,
+        watermark=watermark,
+        custom_message=custom_message
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to dispatch email"))
+    return result
+

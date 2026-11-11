@@ -148,12 +148,58 @@ export const api = {
     body: JSON.stringify(payload)
   }),
   runPreflight: (projectId: string) => request<PreflightReport>(`/projects/${projectId}/preflight`, { method: 'POST' }),
-  createIssuanceJob: (projectId: string, output_mode: string, template_id?: string) => 
+  createIssuanceJob: (projectId: string, output_mode: string, template_id?: string, send_emails?: boolean) => 
     request<IssuanceJob>(`/projects/${projectId}/issuance/jobs`, {
       method: 'POST',
-      body: JSON.stringify({ output_mode, template_id })
+      body: JSON.stringify({ output_mode, template_id, send_emails: !!send_emails })
     }),
   getIssuanceJob: (jobId: string) => request<IssuanceJob>(`/issuance/jobs/${jobId}`),
+
+  // Email Certificate Dispatch
+  emailProjectCertificates: (projectId: string, payload?: {
+    template_id?: string;
+    watermark?: string;
+    only_unsent?: boolean;
+    custom_message?: string;
+  }) =>
+    request<{
+      success: boolean;
+      total_recipients: number;
+      emails_sent: number;
+      skipped_no_email: number;
+      failed_count: number;
+      recipient_results: Array<{
+        recipient_id: string;
+        recipient_name: string;
+        recipient_email?: string;
+        status: string;
+        mode?: string;
+        reason?: string;
+        error?: string;
+      }>;
+    }>(`/projects/${projectId}/email-certificates`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {})
+    }),
+
+  emailRecipientCertificate: (recipientId: string, payload?: {
+    template_id?: string;
+    watermark?: string;
+    custom_message?: string;
+  }) =>
+    request<{
+      success: boolean;
+      mode?: string;
+      recipient_email?: string;
+      message_id?: string;
+      attachment_bytes?: number;
+      error?: string;
+      simulated_at?: string;
+      note?: string;
+    }>(`/recipients/${recipientId}/send-email`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {})
+    }),
 
   // Verification & Credentials
   createInstantCertificate: (projectId: string, data: Record<string, any>) => 

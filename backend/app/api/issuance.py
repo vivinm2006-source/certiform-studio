@@ -280,6 +280,17 @@ def create_issuance_job(project_id: str, payload: IssuanceJobCreate, db: Session
     try:
         process_issuance_job(job.id)
         db.refresh(job)
+        if getattr(payload, "send_emails", False):
+            try:
+                from app.services.email_service import send_bulk_project_certificate_emails
+                send_bulk_project_certificate_emails(
+                    db=db,
+                    project_id=project_id,
+                    template_id=payload.template_id,
+                    watermark="GEMINI"
+                )
+            except Exception as e_mail:
+                print(f"Error dispatching bulk emails for job {job.id}: {e_mail}")
     except Exception as e:
         print(f"Error in synchronous issuance job: {e}")
         launch_issuance_job(job.id)

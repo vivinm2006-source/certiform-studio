@@ -38,6 +38,16 @@ class Settings(BaseModel):
     # Public Base URL for QR codes and verification links (configurable)
     PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "https://certiform-studio.vercel.app" if IS_VERCEL else "http://localhost:5173")
     
+    # SMTP & Email Dispatch Configuration
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "certificates@certiform-studio.vercel.app")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "CertiForm Studio Credentials")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
+    EMAIL_SIMULATION_MODE: bool = os.getenv("EMAIL_SIMULATION_MODE", "false").lower() in ("true", "1", "yes")
+    
     # Document Rendering Defaults
     DEFAULT_DPI: int = 300
     PREVIEW_DPI: int = 150

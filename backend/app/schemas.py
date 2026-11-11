@@ -279,6 +279,7 @@ class IssuanceJobCreate(BaseModel):
     output_mode: str = "zip_pdf" # single_pdf, single_png, zip_pdf, zip_png, consolidated_pdf
     recipient_ids: Optional[List[str]] = None # if None, issues all valid recipients
     template_id: Optional[str] = None
+    send_emails: bool = False
 
 class IssuanceJobOut(BaseModel):
     id: str

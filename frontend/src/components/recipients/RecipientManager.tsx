@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Upload, Download, Plus, Trash2, Search, 
   CheckCircle2, AlertCircle, FileSpreadsheet, Eye, 
-  ChevronLeft, ChevronRight, Filter, ArrowUpDown, Sparkles, FileText, Check, ShieldCheck 
+  ChevronLeft, ChevronRight, Filter, ArrowUpDown, Sparkles, FileText, Check, ShieldCheck, Mail, RefreshCw 
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { api } from '../../services/api';
 import { Recipient } from '../../types';
 import { BulkQuantityPdfModal } from './BulkQuantityPdfModal';
 import { AutonomousQAModal } from '../qa/AutonomousQAModal';
+import { EmailDispatchModal } from './EmailDispatchModal';
 import { cleanCorruptedS, cleanRecordDict } from '../../utils/textCleaner';
 
 export const RecipientManager: React.FC = () => {
@@ -41,6 +42,8 @@ export const RecipientManager: React.FC = () => {
   const [isFillingGaps, setIsFillingGaps] = useState(false);
   const [isAutoEnhancing, setIsAutoEnhancing] = useState(false);
   const [showQAModal, setShowQAModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [sendingEmailRecipientId, setSendingEmailRecipientId] = useState<string | null>(null);
   const [cleanMessage, setCleanMessage] = useState<string | null>(null);
 
   // Filtered rows
@@ -251,6 +254,40 @@ export const RecipientManager: React.FC = () => {
     }
   };
 
+  const recipientsWithEmailCount = React.useMemo(() => {
+    return recipients.filter((r) => {
+      const d = r.data || {};
+      const email = d.email || d.mail || d.email_address || d.e_mail || d.Email || d.Mail;
+      return typeof email === 'string' && email.includes('@') && email.includes('.');
+    }).length;
+  }, [recipients]);
+
+  const handleSendSingleEmail = async (rec: Recipient, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const d = rec.data || {};
+    const email = d.email || d.mail || d.email_address || d.e_mail || d.Email || d.Mail;
+    const name = d.recipient_name || d.name || d.student_name || 'Participant';
+
+    if (!email || !String(email).includes('@')) {
+      alert(`Recipient "${name}" does not have a valid email address configured.`);
+      return;
+    }
+
+    setSendingEmailRecipientId(rec.id);
+    try {
+      const res = await api.emailRecipientCertificate(rec.id, {
+        template_id: activeTemplate?.id,
+        watermark: 'GEMINI',
+      });
+      await refreshRecipients();
+      setCleanMessage(`Certificate successfully emailed to ${res.recipient_email || email} (${res.mode || 'delivered'})`);
+    } catch (err: any) {
+      alert(`Email sending error: ${err.message || 'Failed to deliver email'}`);
+    } finally {
+      setSendingEmailRecipientId(null);
+    }
+  };
+
   return (
     <div className="flex-1 bg-white flex flex-col h-full overflow-hidden select-none">
       {/* Action Header */}
@@ -360,6 +397,21 @@ export const RecipientManager: React.FC = () => {
             <span>Download Bulk PDF</span>
           </a>
 
+          {/* EMAIL ALL INDIVIDUAL CERTIFICATES BUTTON */}
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold shadow-xs transition-colors"
+            title="Dispatch individual certificates directly to each recipient's email address with vector PDF attachment"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            <span>Email Certificates</span>
+            {recipientsWithEmailCount > 0 && (
+              <span className="bg-blue-800 text-blue-100 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                {recipientsWithEmailCount}
+              </span>
+            )}
+          </button>
+
           {/* BULK GENERATE IN PDF BUTTON (MODAL) */}
           <button
             onClick={() => setShowBulkPdfModal(true)}
@@ -454,17 +506,25 @@ export const RecipientManager: React.FC = () => {
                     {rIdx + 1}
                   </td>
                   <td className="px-3 py-2 border-r border-slate-200">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                        rec.status === 'issued'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : rec.status === 'error'
-                          ? 'bg-rose-100 text-rose-800'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {rec.status}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                          rec.status === 'issued'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : rec.status === 'error'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {rec.status}
+                      </span>
+                      {rec.data?.email_sent && (
+                        <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          <Check className="h-2.5 w-2.5" />
+                          <span>Emailed</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   {dataColumns.map((col) => {
                     let cellVal = rec.data?.[col] ?? '';
@@ -501,6 +561,24 @@ export const RecipientManager: React.FC = () => {
                       >
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       </a>
+                      <button
+                        onClick={(e) => handleSendSingleEmail(rec, e)}
+                        disabled={sendingEmailRecipientId === rec.id}
+                        className={`p-1 rounded hover:bg-blue-50 transition-colors ${
+                          rec.data?.email_sent ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-blue-600'
+                        }`}
+                        title={
+                          rec.data?.email_sent
+                            ? `Certificate already emailed. Click to resend to recipient.`
+                            : "Email individual certificate directly to this recipient"
+                        }
+                      >
+                        {sendingEmailRecipientId === rec.id ? (
+                          <RefreshCw className="h-3.5 w-3.5 text-blue-600 animate-spin" />
+                        ) : (
+                          <Mail className="h-3.5 w-3.5" />
+                        )}
+                      </button>
                       <button
                         onClick={() => {
                           setActiveRecipientIndex(rIdx);
@@ -793,6 +871,12 @@ export const RecipientManager: React.FC = () => {
       <AutonomousQAModal
         isOpen={showQAModal}
         onClose={() => setShowQAModal(false)}
+      />
+
+      {/* Individual Certificate Email Dispatch Modal */}
+      <EmailDispatchModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
       />
     </div>
   );

@@ -399,4 +399,62 @@ def test_qa_quick_verify_and_status(client, db_session):
     assert "status" in stat_data
     assert "summary" in stat_data
 
+# --- Test R: Individual Certificate Email Dispatch ---
+def test_individual_certificate_email_dispatch(client, db_session):
+    proj = create_default_project(db_session, title="Email Dispatch Test Project")
+    
+    # 1. Add recipient with valid email
+    rec_with_email = client.post(f"/api/v1/projects/{proj.id}/recipients", json={
+        "data": {
+            "recipient_name": "Dr. Vivek Murthy",
+            "department": "Public Health",
+            "email": "vivek.murthy@example.com"
+        },
+        "source": "manual",
+        "status": "valid"
+    }).json()
+    rec_id_valid = rec_with_email["id"]
+
+    # 2. Add recipient without email
+    rec_without_email = client.post(f"/api/v1/projects/{proj.id}/recipients", json={
+        "data": {
+            "recipient_name": "Dr. James Wilson",
+            "department": "Diagnostics"
+        },
+        "source": "manual",
+        "status": "valid"
+    }).json()
+    rec_id_no_email = rec_without_email["id"]
+
+    # 3. Test single recipient email dispatch (valid email)
+    res_single = client.post(f"/api/v1/recipients/{rec_id_valid}/send-email", json={
+        "watermark": "GEMINI",
+        "custom_message": "Congratulations on your distinguished achievement."
+    })
+    assert res_single.status_code == 200
+    single_data = res_single.json()
+    assert single_data["success"] is True
+    assert single_data["recipient_email"] == "vivek.murthy@example.com"
+    assert "message_id" in single_data
+    assert single_data["attachment_bytes"] > 1000
+
+    # 4. Test single recipient email dispatch (missing email returns 400 error)
+    res_single_fail = client.post(f"/api/v1/recipients/{rec_id_no_email}/send-email", json={
+        "watermark": "GEMINI"
+    })
+    assert res_single_fail.status_code == 400
+
+    # 5. Test bulk project email dispatch
+    res_bulk = client.post(f"/api/v1/projects/{proj.id}/email-certificates", json={
+        "watermark": "GEMINI",
+        "only_unsent": False
+    })
+    assert res_bulk.status_code == 200
+    bulk_data = res_bulk.json()
+    assert bulk_data["success"] is True
+    assert bulk_data["emails_sent"] >= 1
+    assert bulk_data["skipped_no_email"] >= 1
+    assert len(bulk_data["recipient_results"]) >= 2
+
+
 

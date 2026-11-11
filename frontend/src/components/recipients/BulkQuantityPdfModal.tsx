@@ -17,6 +17,7 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
 
   const [outputMode, setOutputMode] = useState<'consolidated_pdf' | 'zip_pdf' | 'zip_png'>('consolidated_pdf');
   const [watermark, setWatermark] = useState<string>('GEMINI');
+  const [sendEmails, setSendEmails] = useState<boolean>(false);
   const [activeJob, setActiveJob] = useState<IssuanceJob | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -133,7 +134,7 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
       : `certificates_bundle_${currentProject.id.slice(0, 8)}.zip`;
 
     try {
-      const job = await api.createIssuanceJob(currentProject.id, outputMode, tplId);
+      const job = await api.createIssuanceJob(currentProject.id, outputMode, tplId, sendEmails);
       setActiveJob(job);
       setIsSubmitting(false);
       if (job.status === 'completed' || job.artifact_url) {
@@ -347,6 +348,24 @@ export const BulkQuantityPdfModal: React.FC<BulkQuantityPdfModalProps> = ({ isOp
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Email Dispatch Option Card */}
+          <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5">
+            <label className="flex items-start space-x-2.5 cursor-pointer text-xs font-semibold text-blue-950 select-none">
+              <input
+                type="checkbox"
+                checked={sendEmails}
+                onChange={(e) => setSendEmails(e.target.checked)}
+                className="mt-0.5 rounded border-blue-300 text-brand-600 focus:ring-brand-500 h-4 w-4"
+              />
+              <div>
+                <span>Also dispatch individual certificates to each recipient's email address</span>
+                <p className="text-[11px] font-normal text-blue-900/80 mt-0.5 leading-relaxed">
+                  Automatically delivers an official certificate email with personalized vector PDF attachment and Gemini watermark to every recipient with an email address.
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* Job Progress & Completion Card */}
