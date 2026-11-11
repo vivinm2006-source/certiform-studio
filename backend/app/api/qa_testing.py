@@ -7,8 +7,14 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from qa.config import DEFAULT_LOCAL_URL, LOAD_STAGES, ACCEPTANCE_CRITERIA
-from qa.autonomous_qa_agent import AutonomousQAAgent
+try:
+    from qa.config import DEFAULT_LOCAL_URL, LOAD_STAGES, ACCEPTANCE_CRITERIA
+    from qa.autonomous_qa_agent import AutonomousQAAgent
+except Exception as e_qa:
+    DEFAULT_LOCAL_URL = "http://localhost:8000"
+    LOAD_STAGES = []
+    ACCEPTANCE_CRITERIA = {}
+    AutonomousQAAgent = None
 
 router = APIRouter(prefix="/qa", tags=["Autonomous QA & Load Testing"])
 

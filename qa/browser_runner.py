@@ -11,7 +11,10 @@ import base64
 import os
 from typing import Dict, Any, List
 import httpx
-import websockets
+try:
+    import websockets
+except ImportError:
+    websockets = None
 from qa.config import CHROME_EXECUTABLE, RESULTS_DIR
 
 class BrowserAutomationRunner:
