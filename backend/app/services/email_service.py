@@ -160,11 +160,15 @@ def build_certificate_email_message(
     pdf_bytes: bytes,
     filename: str,
     institution_name: str = "CertiForm Studio",
-    custom_message: Optional[str] = None
+    custom_message: Optional[str] = None,
+    from_name: Optional[str] = None,
+    from_email: Optional[str] = None
 ) -> MIMEMultipart:
     """Construct multi-part MIME email containing HTML, text, and vector PDF attachment."""
     msg = MIMEMultipart("mixed")
-    msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
+    fn = from_name or settings.SMTP_FROM_NAME or "CertiForm Studio"
+    fe = from_email or settings.SMTP_FROM_EMAIL or "certificates@certiform-studio.vercel.app"
+    msg["From"] = formataddr((fn, fe))
     msg["To"] = formataddr((recipient_name, recipient_email))
     msg["Subject"] = f"Official Certificate: {certificate_title} - {recipient_name}"
     msg["Message-ID"] = make_msgid(domain="certiform-studio.vercel.app")
@@ -189,6 +193,123 @@ def build_certificate_email_message(
 
     return msg
 
+def resolve_smtp_config(override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Resolve SMTP settings from request payload override or server environment."""
+    cfg = override or {}
+    host = str(cfg.get("smtp_host") or cfg.get("host") or settings.SMTP_HOST or "").strip()
+    raw_port = cfg.get("smtp_port") or cfg.get("port") or settings.SMTP_PORT or 587
+    try:
+        port = int(raw_port)
+    except Exception:
+        port = 587
+    user = str(cfg.get("smtp_user") or cfg.get("user") or settings.SMTP_USER or "").strip()
+    password = str(cfg.get("smtp_password") or cfg.get("password") or settings.SMTP_PASSWORD or "").strip()
+    
+    # In Gmail and most authenticated SMTP, From email MUST match or alias the authenticated user
+    default_from = user if (user and "@" in user) else settings.SMTP_FROM_EMAIL
+    from_email = str(cfg.get("smtp_from_email") or cfg.get("from_email") or default_from or "certificates@certiform-studio.vercel.app").strip()
+    from_name = str(cfg.get("smtp_from_name") or cfg.get("from_name") or settings.SMTP_FROM_NAME or "CertiForm Studio Credentials").strip()
+    
+    use_ssl = bool(cfg.get("use_ssl", (port == 465)))
+    use_tls = bool(cfg.get("use_tls", (port == 587 or settings.SMTP_USE_TLS)))
+    
+    # Simulation mode is only active if explicitly requested or configured
+    simulation_mode = bool(cfg.get("simulation_mode", settings.EMAIL_SIMULATION_MODE))
+    is_configured = bool(host and user and password)
+
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "from_email": from_email,
+        "from_name": from_name,
+        "use_ssl": use_ssl,
+        "use_tls": use_tls,
+        "is_configured": is_configured,
+        "simulation_mode": simulation_mode
+    }
+
+def test_smtp_connection_service(
+    smtp_config: Dict[str, Any],
+    test_email: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Test live SMTP relay connection, authentication, and optionally dispatch a test verification email.
+    """
+    smtp = resolve_smtp_config(smtp_config)
+    if not smtp["host"]:
+        return {"success": False, "error": "SMTP Host is required (e.g., smtp.gmail.com)."}
+    if not smtp["user"]:
+        return {"success": False, "error": "SMTP Username / Email address is required."}
+    if not smtp["password"]:
+        return {"success": False, "error": "SMTP Password or App Password is required."}
+
+    try:
+        if smtp["use_ssl"] or smtp["port"] == 465:
+            server = smtplib.SMTP_SSL(smtp["host"], smtp["port"], timeout=15)
+        else:
+            server = smtplib.SMTP(smtp["host"], smtp["port"], timeout=15)
+            if smtp["use_tls"]:
+                server.starttls()
+        
+        server.login(smtp["user"], smtp["password"])
+        
+        test_sent = False
+        if test_email and "@" in test_email and "." in test_email:
+            msg = MIMEMultipart("alternative")
+            msg["From"] = formataddr((smtp["from_name"], smtp["from_email"]))
+            msg["To"] = test_email.strip()
+            msg["Subject"] = "CertiForm Studio - SMTP Connection Test Successful"
+            msg["Message-ID"] = make_msgid(domain="certiform-studio.vercel.app")
+            
+            text_body = f"Hello!\n\nThis is an official verification email from CertiForm Studio.\n\nYour SMTP outgoing mail server ({smtp['host']}:{smtp['port']}) is authenticated and successfully transmitting messages.\n\nBest regards,\nCertiForm Studio"
+            html_body = f"""<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 12px; background-color: #FFFFFF;">
+  <div style="background-color: #4F46E5; padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+    <h2 style="color: #FFFFFF; margin: 0; font-size: 18px;">SMTP Test Successful</h2>
+  </div>
+  <p style="font-size: 14px; color: #1E293B; line-height: 1.6;">
+    Congratulations! Your outgoing mail server is properly connected and authenticated.
+  </p>
+  <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; margin: 16px 0; font-size: 13px; color: #475569;">
+    <div><strong>Host:</strong> {smtp['host']}:{smtp['port']}</div>
+    <div><strong>Sender:</strong> {smtp['from_email']}</div>
+    <div><strong>Authentication:</strong> Verified</div>
+  </div>
+  <p style="font-size: 13px; color: #64748B;">
+    Your CertiForm Studio certificate email dispatch system is now fully operational to deliver certificates directly to recipients' inboxes.
+  </p>
+</div>"""
+            msg.attach(MIMEText(text_body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+            server.send_message(msg)
+            test_sent = True
+
+        server.quit()
+        return {
+            "success": True,
+            "message": f"SMTP Authentication Succeeded! {('Test email sent to ' + test_email) if test_sent else 'Ready to deliver recipient certificate emails.'}",
+            "host": smtp["host"],
+            "port": smtp["port"],
+            "user": smtp["user"],
+            "test_sent": test_sent
+        }
+    except smtplib.SMTPAuthenticationError as e:
+        return {
+            "success": False,
+            "error": "Authentication failed (535). For Gmail accounts: 1) Enable 2-Step Verification in your Google Account. 2) Generate a 16-character App Password at myaccount.google.com/apppasswords. 3) Paste the 16-character code into the password field (do not use your regular login password)."
+        }
+    except smtplib.SMTPConnectError as e:
+        return {
+            "success": False,
+            "error": f"Failed to connect to SMTP host {smtp['host']}:{smtp['port']}. Please verify the host address and port."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"SMTP Connection Error: {str(e)}"
+        }
+
 def send_single_certificate_email(
     recipient_email: str,
     recipient_name: str,
@@ -198,14 +319,17 @@ def send_single_certificate_email(
     pdf_bytes: bytes,
     filename: str,
     institution_name: str = "CertiForm Studio",
-    custom_message: Optional[str] = None
+    custom_message: Optional[str] = None,
+    smtp_override: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Send an individual certificate email directly to the recipient.
-    Uses real SMTP relay when SMTP_HOST is configured, or safe logged simulation mode.
+    Send an individual certificate email directly to the recipient's mail ID.
+    Delivers through configured SMTP relay or returns clear diagnostic if SMTP is unconfigured.
     """
     if not recipient_email or "@" not in recipient_email:
         return {"success": False, "error": "Invalid or missing recipient email address"}
+
+    smtp = resolve_smtp_config(smtp_override)
 
     msg = build_certificate_email_message(
         recipient_email=recipient_email,
@@ -216,37 +340,12 @@ def send_single_certificate_email(
         pdf_bytes=pdf_bytes,
         filename=filename,
         institution_name=institution_name,
-        custom_message=custom_message
+        custom_message=custom_message,
+        from_name=smtp["from_name"],
+        from_email=smtp["from_email"]
     )
 
-    is_live_smtp = bool(settings.SMTP_HOST and str(settings.SMTP_HOST).strip()) and not settings.EMAIL_SIMULATION_MODE
-
-    if is_live_smtp:
-        try:
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
-            if settings.SMTP_USE_TLS:
-                server.starttls()
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-            server.quit()
-            return {
-                "success": True,
-                "mode": "smtp",
-                "recipient_email": recipient_email,
-                "message_id": msg["Message-ID"],
-                "attachment_bytes": len(pdf_bytes)
-            }
-        except Exception as e:
-            print(f"SMTP Dispatch Error for {recipient_email}: {e}")
-            return {
-                "success": False,
-                "error": f"SMTP delivery failure: {str(e)}",
-                "mode": "smtp"
-            }
-    else:
-        # High-Fidelity Simulation Mode
-        # Validates full MIME structure, logs delivery record, returns structured success
+    if smtp["simulation_mode"]:
         return {
             "success": True,
             "mode": "simulated",
@@ -254,7 +353,51 @@ def send_single_certificate_email(
             "message_id": msg["Message-ID"],
             "attachment_bytes": len(pdf_bytes),
             "simulated_at": datetime.now(timezone.utc).isoformat(),
-            "note": "Delivered in safe simulation mode (configure SMTP_HOST to route via external relay)"
+            "note": "Delivered in safe simulation mode (no actual email sent to inbox)"
+        }
+
+    if not smtp["is_configured"]:
+        return {
+            "success": False,
+            "mode": "not_configured",
+            "error": f"Outgoing SMTP mailer is not configured. Email cannot be delivered to {recipient_email}. Please configure your Gmail or SMTP credentials in Email Settings to deliver real emails to recipients.",
+            "recipient_email": recipient_email
+        }
+
+    try:
+        if smtp["use_ssl"] or smtp["port"] == 465:
+            server = smtplib.SMTP_SSL(smtp["host"], smtp["port"], timeout=20)
+        else:
+            server = smtplib.SMTP(smtp["host"], smtp["port"], timeout=20)
+            if smtp["use_tls"]:
+                server.starttls()
+        
+        if smtp["user"] and smtp["password"]:
+            server.login(smtp["user"], smtp["password"])
+        server.send_message(msg)
+        server.quit()
+        return {
+            "success": True,
+            "mode": "smtp",
+            "recipient_email": recipient_email,
+            "message_id": msg["Message-ID"],
+            "attachment_bytes": len(pdf_bytes),
+            "host": smtp["host"]
+        }
+    except smtplib.SMTPAuthenticationError as e:
+        err_msg = f"SMTP Authentication failed for {smtp['user']}. If using Gmail, please create and use a 16-character Google App Password from myaccount.google.com/apppasswords."
+        print(f"SMTP Auth Error for {recipient_email}: {err_msg}")
+        return {
+            "success": False,
+            "error": err_msg,
+            "mode": "smtp"
+        }
+    except Exception as e:
+        print(f"SMTP Dispatch Error for {recipient_email}: {e}")
+        return {
+            "success": False,
+            "error": f"SMTP delivery failure: {str(e)}",
+            "mode": "smtp"
         }
 
 def send_recipient_certificate_email(
@@ -262,7 +405,8 @@ def send_recipient_certificate_email(
     recipient_id: str,
     template_id: Optional[str] = None,
     watermark: str = "GEMINI",
-    custom_message: Optional[str] = None
+    custom_message: Optional[str] = None,
+    smtp_config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Renders and sends an individual certificate email to a specific recipient.
@@ -372,7 +516,8 @@ def send_recipient_certificate_email(
         pdf_bytes=pdf_bytes,
         filename=filename,
         institution_name=institution_name,
-        custom_message=custom_message
+        custom_message=custom_message,
+        smtp_override=smtp_config
     )
 
     if dispatch_res.get("success"):
@@ -410,7 +555,8 @@ def send_bulk_project_certificate_emails(
     template_id: Optional[str] = None,
     watermark: str = "GEMINI",
     only_unsent: bool = False,
-    custom_message: Optional[str] = None
+    custom_message: Optional[str] = None,
+    smtp_config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Iterates through all project recipients and individually emails their certificate.
@@ -433,6 +579,19 @@ def send_bulk_project_certificate_emails(
             "emails_sent": 0,
             "skipped_no_email": 0,
             "failed_count": 0,
+            "recipient_results": []
+        }
+
+    # Verify SMTP configuration upfront
+    smtp = resolve_smtp_config(smtp_config)
+    if not smtp["is_configured"] and not smtp["simulation_mode"]:
+        return {
+            "success": False,
+            "error": "Outgoing SMTP mail server is not configured. Please enter your Gmail or SMTP credentials in Email Settings to deliver real emails to recipients.",
+            "total_recipients": len(recipients),
+            "emails_sent": 0,
+            "skipped_no_email": 0,
+            "failed_count": len(recipients),
             "recipient_results": []
         }
 
@@ -471,7 +630,8 @@ def send_bulk_project_certificate_emails(
             recipient_id=rec.id,
             template_id=template_id,
             watermark=watermark,
-            custom_message=custom_message
+            custom_message=custom_message,
+            smtp_config=smtp_config
         )
 
         if res.get("success"):
@@ -494,7 +654,7 @@ def send_bulk_project_certificate_emails(
             })
 
     return {
-        "success": True,
+        "success": emails_sent > 0 or failed_count == 0,
         "total_recipients": len(recipients),
         "emails_sent": emails_sent,
         "skipped_no_email": skipped_no_email,

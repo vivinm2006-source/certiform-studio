@@ -549,6 +549,7 @@ def email_project_certificates_bulk(
     watermark = p.get("watermark", "GEMINI")
     only_unsent = p.get("only_unsent", False)
     custom_message = p.get("custom_message")
+    smtp_config = p.get("smtp_config")
 
     result = send_bulk_project_certificate_emails(
         db=db,
@@ -556,7 +557,8 @@ def email_project_certificates_bulk(
         template_id=template_id,
         watermark=watermark,
         only_unsent=only_unsent,
-        custom_message=custom_message
+        custom_message=custom_message,
+        smtp_config=smtp_config
     )
     return result
 
@@ -575,15 +577,49 @@ def email_single_recipient_certificate(
     template_id = p.get("template_id")
     watermark = p.get("watermark", "GEMINI")
     custom_message = p.get("custom_message")
+    smtp_config = p.get("smtp_config")
 
     result = send_recipient_certificate_email(
         db=db,
         recipient_id=recipient_id,
         template_id=template_id,
         watermark=watermark,
-        custom_message=custom_message
+        custom_message=custom_message,
+        smtp_config=smtp_config
     )
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Failed to dispatch email"))
     return result
+
+@router.post("/email/test-smtp")
+def test_smtp_endpoint(payload: Dict[str, Any]):
+    """
+    Verify live SMTP relay credentials and optionally dispatch a real test verification email.
+    """
+    from app.services.email_service import test_smtp_connection_service
+    smtp_config = payload.get("smtp_config") or payload
+    test_email = payload.get("test_email")
+    result = test_smtp_connection_service(smtp_config=smtp_config, test_email=test_email)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "SMTP test failed"))
+    return result
+
+@router.get("/email/smtp-status")
+def get_smtp_status_endpoint():
+    """
+    Return whether outbound SMTP mailer is configured in the environment.
+    """
+    from app.services.email_service import resolve_smtp_config
+    smtp = resolve_smtp_config()
+    return {
+        "is_configured": smtp["is_configured"],
+        "host": smtp["host"],
+        "port": smtp["port"],
+        "user": smtp["user"],
+        "from_email": smtp["from_email"],
+        "from_name": smtp["from_name"],
+        "use_tls": smtp["use_tls"],
+        "use_ssl": smtp["use_ssl"],
+        "simulation_mode": smtp["simulation_mode"]
+    }
 

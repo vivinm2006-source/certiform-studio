@@ -161,6 +161,7 @@ export const api = {
     watermark?: string;
     only_unsent?: boolean;
     custom_message?: string;
+    smtp_config?: any;
   }) =>
     request<{
       success: boolean;
@@ -168,6 +169,7 @@ export const api = {
       emails_sent: number;
       skipped_no_email: number;
       failed_count: number;
+      error?: string;
       recipient_results: Array<{
         recipient_id: string;
         recipient_name: string;
@@ -186,6 +188,7 @@ export const api = {
     template_id?: string;
     watermark?: string;
     custom_message?: string;
+    smtp_config?: any;
   }) =>
     request<{
       success: boolean;
@@ -200,6 +203,33 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload || {})
     }),
+
+  testSmtpConnection: (smtp_config: any, test_email?: string) =>
+    request<{
+      success: boolean;
+      message?: string;
+      error?: string;
+      host?: string;
+      port?: number;
+      user?: string;
+      test_sent?: boolean;
+    }>('/email/test-smtp', {
+      method: 'POST',
+      body: JSON.stringify({ smtp_config, test_email })
+    }),
+
+  getSmtpStatus: () =>
+    request<{
+      is_configured: boolean;
+      host: string;
+      port: number;
+      user: string;
+      from_email: string;
+      from_name: string;
+      use_tls: boolean;
+      use_ssl: boolean;
+      simulation_mode: boolean;
+    }>('/email/smtp-status'),
 
   // Verification & Credentials
   createInstantCertificate: (projectId: string, data: Record<string, any>) => 

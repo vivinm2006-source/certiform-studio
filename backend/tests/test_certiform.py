@@ -426,10 +426,11 @@ def test_individual_certificate_email_dispatch(client, db_session):
     }).json()
     rec_id_no_email = rec_without_email["id"]
 
-    # 3. Test single recipient email dispatch (valid email)
+    # 3. Test single recipient email dispatch (simulated mode)
     res_single = client.post(f"/api/v1/recipients/{rec_id_valid}/send-email", json={
         "watermark": "GEMINI",
-        "custom_message": "Congratulations on your distinguished achievement."
+        "custom_message": "Congratulations on your distinguished achievement.",
+        "smtp_config": {"simulation_mode": True}
     })
     assert res_single.status_code == 200
     single_data = res_single.json()
@@ -440,14 +441,16 @@ def test_individual_certificate_email_dispatch(client, db_session):
 
     # 4. Test single recipient email dispatch (missing email returns 400 error)
     res_single_fail = client.post(f"/api/v1/recipients/{rec_id_no_email}/send-email", json={
-        "watermark": "GEMINI"
+        "watermark": "GEMINI",
+        "smtp_config": {"simulation_mode": True}
     })
     assert res_single_fail.status_code == 400
 
-    # 5. Test bulk project email dispatch
+    # 5. Test bulk project email dispatch (simulated mode)
     res_bulk = client.post(f"/api/v1/projects/{proj.id}/email-certificates", json={
         "watermark": "GEMINI",
-        "only_unsent": False
+        "only_unsent": False,
+        "smtp_config": {"simulation_mode": True}
     })
     assert res_bulk.status_code == 200
     bulk_data = res_bulk.json()
@@ -455,6 +458,11 @@ def test_individual_certificate_email_dispatch(client, db_session):
     assert bulk_data["emails_sent"] >= 1
     assert bulk_data["skipped_no_email"] >= 1
     assert len(bulk_data["recipient_results"]) >= 2
+
+    # 6. Test SMTP status endpoint
+    res_status = client.get("/api/v1/email/smtp-status")
+    assert res_status.status_code == 200
+    assert "is_configured" in res_status.json()
 
 
 

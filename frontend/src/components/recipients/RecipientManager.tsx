@@ -273,16 +273,34 @@ export const RecipientManager: React.FC = () => {
       return;
     }
 
+    // Retrieve saved SMTP configuration from localStorage
+    let smtpConfig = null;
+    try {
+      const saved = localStorage.getItem('certiform_smtp_config');
+      if (saved) smtpConfig = JSON.parse(saved);
+    } catch (err) {
+      // ignore
+    }
+
     setSendingEmailRecipientId(rec.id);
     try {
       const res = await api.emailRecipientCertificate(rec.id, {
         template_id: activeTemplate?.id,
         watermark: 'GEMINI',
+        smtp_config: smtpConfig
       });
       await refreshRecipients();
-      setCleanMessage(`Certificate successfully emailed to ${res.recipient_email || email} (${res.mode || 'delivered'})`);
+      setCleanMessage(`Certificate successfully delivered to ${res.recipient_email || email} via ${res.mode === 'smtp' ? 'SMTP' : 'simulated delivery'}`);
     } catch (err: any) {
-      alert(`Email sending error: ${err.message || 'Failed to deliver email'}`);
+      const msg = err.message || 'Failed to deliver email';
+      if (msg.includes('SMTP') || msg.includes('configured')) {
+        const wantOpen = confirm(`${msg}\n\nWould you like to open the Email Settings to configure your Gmail or SMTP mailer now?`);
+        if (wantOpen) {
+          setShowEmailModal(true);
+        }
+      } else {
+        alert(`Email dispatch error: ${msg}`);
+      }
     } finally {
       setSendingEmailRecipientId(null);
     }
